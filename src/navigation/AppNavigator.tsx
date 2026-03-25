@@ -8,6 +8,7 @@ import { Colors } from '../theme/Theme';
 import DashboardScreen from '../screens/DashboardScreen';
 import TodosScreen from '../screens/TodosScreen';
 import NotesScreen from '../screens/NotesScreen';
+import FocusScreen from '../screens/FocusScreen';
 import VaultScreen from '../screens/VaultScreen';
 
 const Tab = createBottomTabNavigator();
@@ -40,8 +41,10 @@ function TabNavigator() {
           let iconName: any = 'home';
           if (route.name === 'Dashboard') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Todos') {
+          } else if (route.name === 'Tasks') {
             iconName = focused ? 'list' : 'list-outline';
+          } else if (route.name === 'Focus') {
+            iconName = focused ? 'timer' : 'timer-outline';
           } else if (route.name === 'Notes') {
             iconName = focused ? 'book' : 'book-outline';
           }
@@ -55,7 +58,8 @@ function TabNavigator() {
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Todos" component={TodosScreen} />
+      <Tab.Screen name="Tasks" component={TodosScreen} />
+      <Tab.Screen name="Focus" component={FocusScreen} />
       <Tab.Screen name="Notes" component={NotesScreen} />
     </Tab.Navigator>
   );
