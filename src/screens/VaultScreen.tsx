@@ -68,7 +68,7 @@ export default function VaultScreen() {
   };
 
   const pickAndHideImage = async () => {
-    const { status } = await MediaLibrary.requestPermissionsAsync();
+    const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo', 'video']);
     if (status !== 'granted') return Alert.alert("Permission Required", "Need media library access to hide photos.");
 
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -105,7 +105,7 @@ export default function VaultScreen() {
   const unhideItem = async () => {
     if (!selectedItem) return;
     try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
+      const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo', 'video']);
       if (status !== 'granted') return Alert.alert("Permission Required...");
       
       // Save back to general photo album

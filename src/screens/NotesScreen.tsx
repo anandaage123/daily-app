@@ -4,11 +4,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Typography } from '../theme/Theme';
 import { Ionicons } from '@expo/vector-icons';
 
+type Mood = '😀' | '😌' | '😐' | '😩' | '😡';
+const MOODS: Mood[] = ['😀', '😌', '😐', '😩', '😡'];
+
 interface Note {
   id: string;
   title: string;
   content: string;
   date: string;
+  mood?: Mood;
 }
 
 export default function NotesScreen() {
@@ -25,7 +29,6 @@ export default function NotesScreen() {
     loadNotes();
   }, []);
 
-  // --- PIN Auth Logic ---
   const checkPinStatus = async () => {
     try {
       const savedPin = await AsyncStorage.getItem('@journal_pin');
@@ -48,8 +51,7 @@ export default function NotesScreen() {
           if (newPin === savedPin) {
             setIsAuthenticated(true);
           } else {
-            setPin(''); // Reset immediately
-            // Optional minimal UI feedback for invalid pin!
+            setPin(''); 
           }
         }
         setPin('');
@@ -57,7 +59,6 @@ export default function NotesScreen() {
     }
   };
 
-  // --- Journal Logic ---
   const loadNotes = async () => {
     try {
       const stored = await AsyncStorage.getItem('@daily_notes_v3');
@@ -66,7 +67,7 @@ export default function NotesScreen() {
   };
 
   const saveNotes = async (newNotes: Note[]) => {
-    setNotes(newNotes); // Optimistic updating
+    setNotes(newNotes); 
     try {
       await AsyncStorage.setItem('@daily_notes_v3', JSON.stringify(newNotes));
     } catch (e) {}
@@ -85,6 +86,7 @@ export default function NotesScreen() {
       title: currentNote.title || 'Untitled',
       content: currentNote.content || '',
       date: new Date().toLocaleDateString(),
+      mood: currentNote.mood || '😌',
     };
     
     let updatedNotes;
@@ -108,10 +110,8 @@ export default function NotesScreen() {
     ]);
   };
 
-  // Ensure loading state
   if (hasRegisteredPin === null) return null;
 
-  // Authorization Screen for Journal
   if (!isAuthenticated) {
     return (
       <View style={styles.authContainer}>
@@ -139,12 +139,11 @@ export default function NotesScreen() {
     );
   }
 
-  // Journal View Mode
   if (isEditing) {
     return (
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={saveCurrentNote}>
+          <TouchableOpacity onPress={() => setIsEditing(false)}>
             <Ionicons name="chevron-back" size={28} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Editing Note</Text>
@@ -152,6 +151,16 @@ export default function NotesScreen() {
             <Text style={styles.saveBtnText}>Save</Text>
           </TouchableOpacity>
         </View>
+        
+        <View style={styles.moodSelector}>
+           <Text style={{...Typography.body, color: Colors.textSecondary, marginRight: 15}}>Today's Mood:</Text>
+           {MOODS.map(m => (
+             <TouchableOpacity key={m} onPress={() => setCurrentNote({...currentNote, mood: m})} style={[styles.moodBadge, currentNote.mood === m && styles.moodActive]}>
+                <Text style={{fontSize: 20}}>{m}</Text>
+             </TouchableOpacity>
+           ))}
+        </View>
+
         <TextInput
           style={styles.titleInput}
           placeholder="Title"
@@ -176,7 +185,7 @@ export default function NotesScreen() {
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.headerTitle}>Secret Journal</Text>
-        <TouchableOpacity onPress={() => { setCurrentNote({}); setIsEditing(true); }}>
+        <TouchableOpacity onPress={() => { setCurrentNote({mood: '😌'}); setIsEditing(true); }}>
           <Ionicons name="create-outline" size={28} color={Colors.primary} />
         </TouchableOpacity>
       </View>
@@ -191,7 +200,10 @@ export default function NotesScreen() {
             onPress={() => { setCurrentNote(item); setIsEditing(true); }}
             onLongPress={() => deleteNote(item.id)}
           >
-            <Text style={styles.noteTitle} numberOfLines={1}>{item.title}</Text>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+               <Text style={styles.noteTitle} numberOfLines={1}>{item.title}</Text>
+               <Text style={{fontSize: 16}}>{item.mood}</Text>
+            </View>
             <Text style={styles.noteDate}>{item.date}</Text>
             <Text style={styles.noteContent} numberOfLines={4}>{item.content}</Text>
           </TouchableOpacity>
@@ -216,9 +228,14 @@ const styles = StyleSheet.create({
   headerTitle: { ...Typography.header },
   row: { justifyContent: 'space-between' },
   noteCard: { backgroundColor: Colors.surface, padding: 15, borderRadius: 16, width: '48%', marginBottom: 15, borderWidth: 1, borderColor: Colors.border, height: 140 },
-  noteTitle: { ...Typography.title, fontSize: 16, marginBottom: 5 },
+  noteTitle: { ...Typography.title, fontSize: 16, marginBottom: 5, flex: 1, paddingRight: 5 },
   noteDate: { ...Typography.caption, fontSize: 12, marginBottom: 8 },
   noteContent: { ...Typography.body, fontSize: 14, color: Colors.textSecondary },
+  
+  moodSelector: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, backgroundColor: Colors.surface, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: Colors.border },
+  moodBadge: { padding: 5, borderRadius: 20, marginHorizontal: 3 },
+  moodActive: { backgroundColor: Colors.primary + '50' },
+  
   titleInput: { ...Typography.header, marginVertical: 10, padding: 10 },
   contentInput: { ...Typography.body, flex: 1, padding: 10, fontSize: 16, color: Colors.text },
   saveBtn: { backgroundColor: Colors.primary, paddingHorizontal: 15, paddingVertical: 8, borderRadius: 8 },

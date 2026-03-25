@@ -47,7 +47,6 @@ export default function DashboardScreen() {
   };
 
   const loadDailyData = async () => {
-    // 1. Fetch Quote
     try {
       const lastFetch = await AsyncStorage.getItem('@quote_date');
       const todayStr = new Date().toDateString();
@@ -64,9 +63,8 @@ export default function DashboardScreen() {
            await AsyncStorage.setItem('@quote_date', todayStr);
          }
       }
-    } catch(e) { console.log('Quote fetch failed', e); }
+    } catch(e) { console.log('Quote fetch failed'); }
 
-    // 2. Fetch Weather
     try {
       const cachedCity = await AsyncStorage.getItem('@weather_city') || 'London';
       setCityInput(cachedCity);
@@ -84,25 +82,18 @@ export default function DashboardScreen() {
         
         const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
         const weatherData = await weatherRes.json();
-        
         const current = weatherData.current_weather;
-        // Simple icon mapping based on WMO Weather interpretation codes
+        
         let iconStr = 'partly-sunny';
         if (current.weathercode === 0) iconStr = current.is_day ? 'sunny' : 'moon';
         else if (current.weathercode >= 60 && current.weathercode <= 69) iconStr = 'rainy';
         else if (current.weathercode >= 71 && current.weathercode <= 79) iconStr = 'snow';
         else if (current.weathercode >= 95) iconStr = 'thunderstorm';
 
-        setWeather({
-          temp: Math.round(current.temperature),
-          desc: `${name}, ${country}`,
-          icon: iconStr,
-        });
-        
+        setWeather({ temp: Math.round(current.temperature), desc: `${name}, ${country}`, icon: iconStr });
         await AsyncStorage.setItem('@weather_city', cityName);
         setIsCityModalVisible(false);
       } else {
-        // If not found, close modal but don't overwrite cache
         setIsCityModalVisible(false);
       }
     } catch(e) {
@@ -117,9 +108,7 @@ export default function DashboardScreen() {
     } catch(e) {}
   };
 
-  const onSecretGesture = () => {
-    navigation.navigate('VaultSettingsAuth');
-  };
+  const onSecretGesture = () => navigation.navigate('VaultSettingsAuth');
 
   const toggleHabit = (id: string) => {
     const updated = habits.map(h => {
@@ -147,6 +136,13 @@ export default function DashboardScreen() {
     }
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
@@ -154,7 +150,7 @@ export default function DashboardScreen() {
       <ScrollView style={styles.container}>
         <Pressable onLongPress={onSecretGesture} delayLongPress={2000} style={styles.headerArea}>
           <Text style={styles.dateText}>{today}</Text>
-          <Text style={styles.greeting}>Good Morning, Hero</Text>
+          <Text style={styles.greeting}>{getGreeting()}, Hero</Text>
         </Pressable>
 
         <View style={styles.quoteCard}>
@@ -198,6 +194,7 @@ export default function DashboardScreen() {
               <Text style={[styles.habitName, habit.completed && styles.habitNameCompleted]}>{habit.name}</Text>
             </TouchableOpacity>
           ))}
+          {habits.length === 0 && <Text style={{color: Colors.textMuted, textAlign: 'center'}}>No habits added yet!</Text>}
         </View>
         
         <View style={styles.weatherWidget}>
@@ -208,8 +205,8 @@ export default function DashboardScreen() {
                <Text style={styles.weatherDesc}>{weather?.desc || 'Loading location...'}</Text>
              </View>
            </View>
-           <TouchableOpacity onPress={() => setIsCityModalVisible(true)}>
-             <Ionicons name="location" size={24} color={Colors.primary} />
+           <TouchableOpacity onPress={() => setIsCityModalVisible(true)} style={styles.locationBtn}>
+             <Ionicons name="location" size={22} color={Colors.text} />
            </TouchableOpacity>
         </View>
         
@@ -285,6 +282,7 @@ const styles = StyleSheet.create({
   weatherWidget: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surfaceHighlight, padding: 20, borderRadius: 16, marginBottom: 50 },
   weatherTemp: { ...Typography.title, fontSize: 24 },
   weatherDesc: { ...Typography.caption, marginTop: 4 },
+  locationBtn: { padding: 10, backgroundColor: Colors.surface, borderRadius: 8 },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: Colors.surface, padding: 25, borderRadius: 20, width: '100%', alignItems: 'center', borderWidth: 1, borderColor: Colors.border },

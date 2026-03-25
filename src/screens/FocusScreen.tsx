@@ -73,6 +73,14 @@ export default function FocusScreen() {
         </TouchableOpacity>
       </View>
 
+      <View style={{flexDirection: 'row', marginBottom: 20}}>
+        {[15, 25, 50].map(min => (
+           <TouchableOpacity key={min} onPress={() => { setIsActive(false); setTimeLeft(min * 60); }} style={{ marginHorizontal: 10 }}>
+              <Text style={{color: Colors.textSecondary, fontWeight: 'bold'}}>{min} min</Text>
+           </TouchableOpacity>
+        ))}
+      </View>
+
       <View style={styles.timerCircle}>
         <Animated.View style={[styles.progressBar, {
            height: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%']})
