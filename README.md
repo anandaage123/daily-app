@@ -1,35 +1,70 @@
-# DailyHub Android Productivity Suite
+# Daily Life
 
-## Overview
-DailyHub is a comprehensive Android productivity application designed to seamlessly blend daily organizational tools with a robust, highly secure "Vault" feature. The app consists of several screens built with React Native and Expo.
+**Daily Life** is a comprehensive productivity and lifestyle management application built with React Native and Expo. It features a sleek dark-themed interface designed to help users manage their daily tasks, habits, finances, and focus sessions in one place.
 
-## Core Screens
-*   **DashboardScreen:** The central hub summarizing the user's daily data.
-*   **BudgetScreen:** For tracking daily finances and expenses.
-*   **FocusScreen:** A Pomodoro timer with customizable audio and session alerts.
-*   **NotesScreen:** For jotting down text-based thoughts.
-*   **TodosScreen:** A task manager.
-*   **VaultScreen:** A secure, media-hiding feature powered by zero-knowledge architecture.
+## 📱 UI Design & Aesthetics
 
-## The Vault Architecture
-The `VaultScreen` is DailyHub's standout privacy feature, designed with **plausible deniability** in mind.
+The application follows a modern **Dark-Theme** aesthetic with the following design principles:
+- **Color Palette**: Deep Charcoal (`#1E1E2C`) background with Gold (`#FFD700`) and Vibrant Purple (`#7148FC`) accents.
+- **Typography**: Clean, bold headers with readable, high-contrast body text using Manrope and Inter styles.
+- **Navigation**: An intuitive bottom tab navigator for quick access to core modules.
+- **Glassmorphism**: Subtle use of surface highlights and blurs to create depth.
+- **Adaptive Icons**: Support for modern Android adaptive icons with matching theme colors.
 
-### Key Security Features:
-1.  **Dual PIN System (Decoy Architecture):**
-    *   **Primary PIN:** Unlocks the true hidden folder containing sensitive personal media.
-    *   **Decoy PIN:** If coerced, the user can input this secondary PIN. It opens a completely different `AsyncStorage` list containing fake/innocuous hidden files.
-    *   *The UI is 100% identical regardless of which PIN is used, ensuring the attacker has no idea the true vault exists.*
-2.  **Partitioned Storage (`Zero-Knowledge`):**
-    *   Metadata is partitioned into `@vault_items_primary` and `@vault_items_decoy`.
-    *   Hidden files moved from the device's gallery are segregated on disk (e.g., `hidden_primary_1234.jpg` vs `hidden_decoy_5678.jpg`).
-3.  **App State Listener (Auto-lock):**
-    *   If the user minimizes DailyHub and backgrounds it, the `AppState` listener immediately locks the vault, clears the state, and forces PIN re-entry upon returning.
-4.  **Asymmetric Settings Model:**
-    *   When logged into the Decoy vault, the settings menu is severely restricted, hiding any option to manage the Primary PIN or remove main security features.
-5.  **Multi-Step Blind Onboarding:**
-    *   Users are guided to set up both PINs sequentially, forcing them to establish the decoy profile immediately instead of treating it as an afterthought.
+---
 
-## Future AI Instructions
-*   When editing React Native components, prioritize exact imports used by Expo (e.g., `expo-file-system/legacy`, `expo-media-library`).
-*   Avoid standard web-only Node APIs; stick to React Native ecosystem tools.
-*   The project relies heavily on `AsyncStorage` for local state persistence.
+## 🚀 Core Functionalities
+
+### 1. 🏠 Dashboard (Home)
+- **Daily Greeting**: Personalized greetings based on the time of day.
+- **Weather Integration**: Live weather updates using the Open-Meteo API. Users can search and set their city.
+- **Daily Inspiration**: Fetches daily motivational quotes from the ZenQuotes API.
+- **Habit Tracker**: Track daily recurring habits with a simple toggle mechanism. Features long-press deletion.
+
+### 2. 📝 Task Management (Tasks)
+- **Priority-Based To-Dos**: Add tasks with Low, Medium, or High priority levels.
+- **Auto-Reset**: Daily tasks automatically uncheck at the start of a new day to encourage consistency.
+- **Sweep Feature**: Easily clear all tasks with a single "Sweep" action.
+- **Persistence**: All tasks are saved locally using `AsyncStorage`.
+
+### 3. 💰 Budget Tracker (Budget)
+- **Expense Logging**: Track your spending with titles and amounts.
+- **Budget Limit**: Set a monthly or daily budget limit and see real-time balance calculations.
+- **Visual Indicators**: Color-coded badges indicate if you are within budget or over-limit.
+- **History**: View a list of recent expenses with dates and categories.
+
+### 4. ⏱️ Focus Timer (Focus)
+- **Liquid-Fill Animation**: A modern visual timer where the background "fills" up as time progresses, providing an intuitive sense of remaining time.
+- **Asymmetric Mode Selection**: Switch between "Deep Work" and "Short Break" using a modern, card-based interface.
+- **Advanced Customization**: Dedicated Settings Modal to fine-tune Focus and Break durations independently.
+- **Interactive Controls**: Features a primary Gradient Start/Pause button, a session Reset, and quick-skip functionality.
+- **Editorial Quotes**: Displays context-relevant productivity insights (e.g., Stephen Covey) to maintain motivation during focus blocks.
+- **Audio Notifications**: High-quality alerts play automatically upon session completion.
+
+### 5. 📓 Notes (Notes)
+- **Quick Jot**: Create and manage personal notes.
+- **Rich Interaction**: Simple interface for capturing thoughts on the go.
+
+### 6. 🔐 Secret Vault
+- **Hidden Access**: A secret navigation trigger on the Dashboard (Long press on header) allows access to a private Vault area.
+
+---
+
+## 🛠️ Technical Implementation
+
+- **Framework**: React Native (Expo SDK 55+)
+- **Graphics**: `expo-linear-gradient` for premium UI effects.
+- **Audio**: `expo-av` for haptic-like sound feedback.
+- **Storage**: `@react-native-async-storage/async-storage` for local data persistence.
+- **Navigation**: `@react-navigation/native` with Stack and Bottom Tab navigators.
+- **API Connectivity**: Integration with Geocoding, Open-Meteo, and ZenQuotes.
+
+---
+
+## 📦 Build & Run
+
+To build an independent APK and install it on your device, use the included script:
+```bash
+./new.sh
+```
+This generates `DailyLife.apk` in the root folder and pushes it to your connected Android device.

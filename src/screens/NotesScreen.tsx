@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, KeyboardAvoidingView, Platform, Keyboard, Modal } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, KeyboardAvoidingView, Platform, Keyboard, Modal, Animated, Dimensions, StatusBar, Linking, ScrollView, Image, Share, PanResponder } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Typography } from '../theme/Theme';
-import { Ionicons } from '@expo/vector-icons';
-import { useIsFocused } from '@react-navigation/native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
+import * as FileSystem from 'expo-file-system';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
 
 type Mood = '😀' | '😌' | '😐' | '😩' | '😡';
 const MOODS: Mood[] = ['😀', '😌', '😐', '😩', '😡'];
@@ -14,7 +18,28 @@ interface Note {
   content: string;
   date: string;
   mood?: Mood;
+  category: string;
 }
+
+const MM_Colors = {
+  primary: '#4052b6',
+  primaryLight: '#8899FF',
+  primaryDim: '#3346a9',
+  surface: '#f9f5ff',
+  surfaceContainer: '#e9e5ff',
+  surfaceContainerHigh: '#e3dfff',
+  onSurface: '#2c2a51',
+  onSurfaceVariant: '#5a5781',
+  onBackground: '#2c2a51',
+  outlineVariant: '#aca8d7',
+  background: '#f9f5ff',
+  white: '#ffffff',
+  slate500: '#64748b',
+  slate400: '#94a3b8',
+  error: '#B41340',
+};
+
+const CATEGORIES = ['All', 'Personal', 'Work', 'Ideas'];
 
 export default function NotesScreen() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -25,11 +50,17 @@ export default function NotesScreen() {
   const [tempPin, setTempPin] = useState('');
 
   const [notes, setNotes] = useState<Note[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [currentNote, setCurrentNote] = useState<Partial<Note>>({});
   
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const isFocused = useIsFocused();
+  const navigation = useNavigation<any>();
+
+  // Animations
+  const shakeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     checkPinStatus();
@@ -46,7 +77,7 @@ export default function NotesScreen() {
 
   const checkPinStatus = async () => {
     try {
-      const savedPin = await AsyncStorage.getItem('@journal_pin');
+      const savedPin = await AsyncStorage.getItem('@journal_pin_v2');
       setHasRegisteredPin(!!savedPin);
       if (!savedPin) {
          setIsAuthenticated(true);
@@ -60,44 +91,68 @@ export default function NotesScreen() {
     setPin('');
   };
 
-  const removePin = async () => {
-    Alert.alert("Remove PIN", "This removes the lock from your Journal.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: async () => {
-         await AsyncStorage.removeItem('@journal_pin');
-         setHasRegisteredPin(false);
-         setIsSettingsVisible(false);
-         Alert.alert("Success", "Journal PIN removed.");
-      }}
-    ]);
+  const cancelSetup = () => {
+     if (setupStep !== 'none') {
+         setSetupStep('none');
+         setPin('');
+     } else {
+         navigation.goBack();
+     }
+  };
+
+  const shake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true })
+    ]).start();
+  };
+
+  const handleForgotPin = async () => {
+    Alert.alert(
+      "Reset PIN",
+      "This will generate a new random PIN and send it to your registered email. Proceed?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Reset", style: "destructive", onPress: async () => {
+            const newPin = Math.floor(100000 + Math.random() * 900000).toString();
+            try {
+              await AsyncStorage.setItem('@journal_pin_v2', newPin);
+              Alert.alert("New PIN", `Your PIN has been reset to ${newPin} for testing.`);
+            } catch (e) {}
+        }}
+      ]
+    );
   };
 
   const handlePin = async (p: string) => {
     const newPin = pin + p;
+    if (newPin.length > 6) return;
     setPin(newPin);
     
-    if (newPin.length === 4) {
+    if (newPin.length === 6) {
       setTimeout(async () => {
         if (setupStep === 'set') {
           setTempPin(newPin);
           setSetupStep('confirm');
         } else if (setupStep === 'confirm') {
           if (newPin === tempPin) {
-             await AsyncStorage.setItem('@journal_pin', newPin);
+             await AsyncStorage.setItem('@journal_pin_v2', newPin);
              setHasRegisteredPin(true);
              setIsAuthenticated(true);
              setSetupStep('none');
-             Alert.alert("Secured", "Journal PIN set successfully.");
           } else {
-             Alert.alert("Error", "PINs do not match. Try again.");
+             shake();
+             Alert.alert("Error", "PINs don't match.");
              setSetupStep('set');
           }
         } else {
-          // Login
-          const savedPin = await AsyncStorage.getItem('@journal_pin');
+          const savedPin = await AsyncStorage.getItem('@journal_pin_v2');
           if (newPin === savedPin) {
             setIsAuthenticated(true);
           } else {
+            shake();
             Alert.alert("Error", "Incorrect PIN");
           }
         }
@@ -120,9 +175,36 @@ export default function NotesScreen() {
     } catch (e) {}
   };
 
+  const exportNotes = async () => {
+    if (notes.length === 0) {
+      Alert.alert("Empty", "No notes to export.");
+      return;
+    }
+
+    const content = notes.map(n => `TITLE: ${n.title}\nDATE: ${n.date}\nMOOD: ${n.mood || 'N/A'}\nCATEGORY: ${n.category}\n\n${n.content}\n\n-------------------\n\n`).join('');
+
+    try {
+        if (Platform.OS === 'ios') {
+            const fileName = `MethodicMuse_Journal_Export_${new Date().getTime()}.txt`;
+            const filePath = `${FileSystem.documentDirectory}${fileName}`;
+            await FileSystem.writeAsStringAsync(filePath, content);
+            await Share.share({
+                url: filePath,
+                title: 'Export Journal'
+            });
+        } else {
+            await Share.share({
+                message: content,
+                title: 'Export Journal'
+            });
+        }
+    } catch (e) {
+      Alert.alert("Error", "Could not export notes.");
+    }
+  };
+
   const saveCurrentNote = () => {
     Keyboard.dismiss();
-    
     if (!currentNote.title?.trim() && !currentNote.content?.trim()) {
       setIsEditing(false);
       return;
@@ -132,8 +214,9 @@ export default function NotesScreen() {
       id: currentNote.id || Date.now().toString(),
       title: currentNote.title || 'Untitled',
       content: currentNote.content || '',
-      date: new Date().toLocaleDateString(),
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       mood: currentNote.mood || '😌',
+      category: currentNote.category || 'Personal',
     };
     
     let updatedNotes;
@@ -149,7 +232,7 @@ export default function NotesScreen() {
   };
 
   const deleteNote = (id: string) => {
-    Alert.alert('Delete Note', 'Are you sure?', [
+    Alert.alert('Delete Entry', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => {
           saveNotes(notes.filter(n => n.id !== id));
@@ -157,35 +240,100 @@ export default function NotesScreen() {
     ]);
   };
 
+  const filteredNotes = notes.filter(n => {
+    const matchesCategory = selectedCategory === 'All' || n.category === selectedCategory;
+    const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) || n.content.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   const getAuthTitle = () => {
-    if (setupStep === 'set') return "Set New Journal PIN";
+    if (setupStep === 'set') return "Set Journal PIN";
     if (setupStep === 'confirm') return "Confirm Journal PIN";
     return "Enter Journal PIN";
   };
+
+  const screenPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dx) > 40 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx > 60) {
+          navigation.navigate('Budget');
+        }
+      }
+    })
+  ).current;
 
   if (hasRegisteredPin === null) return null;
 
   if ((hasRegisteredPin && !isAuthenticated) || setupStep !== 'none') {
     return (
       <View style={styles.authContainer}>
-        <Ionicons name="journal" size={50} color={Colors.primary} style={{marginBottom: 30}} />
-        <Text style={styles.authTitle}>{getAuthTitle()}</Text>
-        <Text style={styles.pinDisplay}>{'*'.repeat(pin.length)}</Text>
-        
-        <View style={styles.numpad}>
-          {[1,2,3,4,5,6,7,8,9].map(num => (
-            <TouchableOpacity key={num} style={styles.numBtn} onPress={() => handlePin(num.toString())}>
-              <Text style={styles.numText}>{num}</Text>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.bgDecoration1} />
+        <View style={styles.bgDecoration2} />
+
+        <View style={styles.authHeader}>
+          <TouchableOpacity onPress={cancelSetup} style={styles.headerLeft}>
+            <MaterialIcons name="lock" size={24} color={MM_Colors.primary} />
+            <Text style={styles.headerTitle}>Secure Journal</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setIsSettingsVisible(true)}>
+            <MaterialIcons name="settings" size={24} color={MM_Colors.slate500} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.authMain}>
+          <View style={styles.identitySection}>
+            <View style={styles.enhancedIconContainer}>
+              <MaterialIcons name="book" size={40} color={MM_Colors.primary} />
+            </View>
+            <Text style={styles.authHeading}>{getAuthTitle()}</Text>
+            <Text style={styles.authSubtext}>Authentication required to access journal</Text>
+          </View>
+
+          <Animated.View style={[styles.pinDisplay, { transform: [{ translateX: shakeAnim }] }]}>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <View
+                key={i}
+                style={[
+                  styles.pinDot,
+                  pin.length >= i && styles.pinDotActive
+                ]}
+              />
+            ))}
+          </Animated.View>
+
+          <View style={styles.keypad}>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+              <TouchableOpacity
+                key={num}
+                style={styles.keypadBtn}
+                onPress={() => handlePin(num.toString())}
+              >
+                <Text style={styles.keypadBtnText}>{num}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.keypadBtn} onPress={() => {}}>
+              <MaterialIcons name="fingerprint" size={32} color={MM_Colors.primaryDim} />
             </TouchableOpacity>
-          ))}
-          <TouchableOpacity style={styles.numBtn} onPress={() => setupStep === 'none' ? setPin('') : startSetup()}>
-             {setupStep === 'none' ? <View /> : <Ionicons name="close" size={24} color={Colors.text} />}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.numBtn} onPress={() => handlePin('0')}>
-            <Text style={styles.numText}>0</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.numBtn} onPress={() => setPin(pin.slice(0, -1))}>
-            <Ionicons name="backspace" size={24} color={Colors.text} />
+            <TouchableOpacity
+              style={styles.keypadBtn}
+              onPress={() => handlePin('0')}
+            >
+              <Text style={styles.keypadBtnText}>0</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.keypadBtn}
+              onPress={() => setPin(pin.slice(0, -1))}
+            >
+              <MaterialIcons name="backspace" size={32} color={MM_Colors.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.forgotLink} onPress={handleForgotPin}>
+            <Text style={styles.forgotLinkText}>FORGOT PIN?</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -194,37 +342,52 @@ export default function NotesScreen() {
 
   if (isEditing) {
     return (
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.mainContainer}>
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => setIsEditing(false)}>
-            <Ionicons name="chevron-back" size={28} color={Colors.primary} />
+            <Ionicons name="chevron-back" size={28} color={MM_Colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Editing Note</Text>
+          <Text style={styles.headerTitleMain}>Editing Note</Text>
           <TouchableOpacity onPress={saveCurrentNote} style={styles.saveBtn}>
             <Text style={styles.saveBtnText}>Save</Text>
           </TouchableOpacity>
         </View>
         
-        <View style={styles.moodSelector}>
-           <Text style={{...Typography.body, color: Colors.textSecondary, marginRight: 15}}>Today's Mood:</Text>
-           {MOODS.map(m => (
-             <TouchableOpacity key={m} onPress={() => setCurrentNote({...currentNote, mood: m})} style={[styles.moodBadge, currentNote.mood === m && styles.moodActive]}>
-                <Text style={{fontSize: 20}}>{m}</Text>
-             </TouchableOpacity>
-           ))}
+        <View style={styles.editControls}>
+          <View style={styles.moodSelector}>
+             <Text style={styles.labelSmall}>Mood:</Text>
+             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+               {MOODS.map(m => (
+                 <TouchableOpacity key={m} onPress={() => setCurrentNote({...currentNote, mood: m})} style={[styles.moodBadge, currentNote.mood === m && styles.moodActive]}>
+                    <Text style={{fontSize: 22}}>{m}</Text>
+                 </TouchableOpacity>
+               ))}
+             </ScrollView>
+          </View>
+
+          <View style={styles.catSelector}>
+             <Text style={styles.labelSmall}>Category:</Text>
+             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+               {CATEGORIES.filter(c => c !== 'All').map(c => (
+                 <TouchableOpacity key={c} onPress={() => setCurrentNote({...currentNote, category: c})} style={[styles.catChip, currentNote.category === c && styles.catChipActive]}>
+                    <Text style={[styles.catChipText, currentNote.category === c && {color: '#FFF'}]}>{c}</Text>
+                 </TouchableOpacity>
+               ))}
+             </ScrollView>
+          </View>
         </View>
 
         <TextInput
           style={styles.titleInput}
           placeholder="Title"
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={MM_Colors.onSurfaceVariant}
           value={currentNote.title}
           onChangeText={(text) => setCurrentNote({ ...currentNote, title: text })}
         />
         <TextInput
           style={styles.contentInput}
           placeholder="Start writing..."
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={MM_Colors.onSurfaceVariant}
           multiline
           textAlignVertical="top"
           value={currentNote.content}
@@ -235,107 +398,221 @@ export default function NotesScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>Secret Journal</Text>
-        <View style={{flexDirection: 'row'}}>
-           <TouchableOpacity onPress={() => setIsSettingsVisible(true)} style={{marginRight: 20}}>
-             <Ionicons name="settings-outline" size={28} color={Colors.textSecondary} />
-           </TouchableOpacity>
-           <TouchableOpacity onPress={() => { setCurrentNote({mood: '😌'}); setIsEditing(true); }}>
-             <Ionicons name="create-outline" size={28} color={Colors.primary} />
-           </TouchableOpacity>
+    <View style={styles.mainContainer} {...screenPanResponder.panHandlers}>
+      <StatusBar barStyle="dark-content" />
+
+      {/* App Bar */}
+      <View style={styles.appBar}>
+        <View style={styles.headerLeftAppBar}>
+           <View style={styles.profileCircle}>
+              <Image
+                source={{ uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200' }}
+                style={styles.profileImg}
+              />
+           </View>
+           <Text style={styles.logoText}>The Methodic Muse</Text>
         </View>
+        <TouchableOpacity style={styles.searchBtnTop} onPress={() => setIsSettingsVisible(true)}>
+           <Ionicons name="settings-outline" size={24} color={MM_Colors.primary} />
+        </TouchableOpacity>
       </View>
-      
-      {!hasRegisteredPin && setupStep === 'none' && (
-         <TouchableOpacity onPress={startSetup} style={styles.warningBox}>
-            <Ionicons name="lock-open-outline" size={20} color="#FFD700" />
-            <Text style={{...Typography.body, color: "#FFD700", marginLeft: 10, flex: 1}}>Set a Custom PIN to lock this Journal.</Text>
-         </TouchableOpacity>
-      )}
 
-      <FlatList
-        data={notes}
-        keyExtractor={item => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-        renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={styles.noteCard} 
-            onPress={() => { setCurrentNote(item); setIsEditing(true); }}
-            onLongPress={() => deleteNote(item.id)}
-          >
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-               <Text style={styles.noteTitle} numberOfLines={1}>{item.title}</Text>
-               <Text style={{fontSize: 16}}>{item.mood}</Text>
-            </View>
-            <Text style={styles.noteDate}>{item.date}</Text>
-            <Text style={styles.noteContent} numberOfLines={4}>{item.content}</Text>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={<Text style={{color: Colors.textMuted, textAlign: 'center', marginTop: 50}}>No notes yet. Tap the pencil icon to begin.</Text>}
-      />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.editorialHeader}>
+           <Text style={styles.heroTitle}>Journal</Text>
+           <Text style={styles.heroSub}>Capture your sparks of inspiration and refined thoughts in a curated space.</Text>
+        </View>
 
+        {/* Search Bar */}
+        <View style={styles.searchSection}>
+           <View style={styles.searchBarContainer}>
+              <Ionicons name="search" size={20} color={MM_Colors.onSurfaceVariant} style={{marginRight: 10}} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search your musings..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+           </View>
+        </View>
+
+        {/* Filter Bar */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar}>
+           {CATEGORIES.map(cat => (
+             <TouchableOpacity key={cat} style={[styles.filterChip, selectedCategory === cat && styles.filterChipActive]} onPress={() => setSelectedCategory(cat)}>
+                <Text style={[styles.filterChipText, selectedCategory === cat && {color: '#FFF'}]}>{cat}</Text>
+             </TouchableOpacity>
+           ))}
+        </ScrollView>
+
+        {/* Notes Grid */}
+        <View style={styles.notesGrid}>
+           {filteredNotes.length > 0 ? (
+             filteredNotes.map((item, idx) => (
+               <TouchableOpacity
+                 key={item.id}
+                 style={[styles.noteCardLarge, idx % 3 === 0 && { width: '100%' }]}
+                 onPress={() => { setCurrentNote(item); setIsEditing(true); }}
+                 onLongPress={() => deleteNote(item.id)}
+               >
+                 <View style={styles.noteTop}>
+                    <View style={styles.tagBadge}>
+                       <Text style={styles.tagText}>{item.category.toUpperCase()}</Text>
+                    </View>
+                    <Text style={styles.noteDateText}>{item.date}</Text>
+                 </View>
+                 <Text style={styles.noteCardTitle}>{item.title}</Text>
+                 <Text style={styles.noteCardContent} numberOfLines={idx % 3 === 0 ? 3 : 2}>{item.content}</Text>
+                 <View style={styles.noteBottom}>
+                    <Text style={{fontSize: 18}}>{item.mood}</Text>
+                    <TouchableOpacity onPress={() => deleteNote(item.id)}>
+                       <Ionicons name="ellipsis-horizontal" size={20} color={MM_Colors.onSurfaceVariant} />
+                    </TouchableOpacity>
+                 </View>
+               </TouchableOpacity>
+             ))
+           ) : (
+             <Text style={styles.emptyText}>No musings found.</Text>
+           )}
+        </View>
+        <View style={{height: 40}} />
+      </ScrollView>
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={styles.fabMain}
+        onPress={() => { setCurrentNote({mood: '😌', category: 'Personal'}); setIsEditing(true); }}
+      >
+        <LinearGradient colors={[MM_Colors.primary, MM_Colors.primaryLight]} style={styles.fabInner}>
+           <Ionicons name="add" size={32} color="#FFF" />
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* Settings Modal */}
       <Modal visible={isSettingsVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
              <Text style={styles.modalTitle}>Journal Settings</Text>
-             
-             {hasRegisteredPin && (
-               <>
-                 <TouchableOpacity style={styles.actionBtn} onPress={() => {setIsSettingsVisible(false); startSetup();}}>
-                    <Ionicons name="key-outline" size={24} color={Colors.text} style={{marginRight: 10}} />
-                    <Text style={styles.actionText}>Change Journal PIN</Text>
-                 </TouchableOpacity>
-                 <TouchableOpacity style={[styles.actionBtn, {backgroundColor: Colors.accent + '30'}]} onPress={removePin}>
-                    <Ionicons name="lock-open-outline" size={24} color={Colors.accent} style={{marginRight: 10}} />
-                    <Text style={[styles.actionText, {color: Colors.accent}]}>Remove Journal PIN</Text>
-                 </TouchableOpacity>
-               </>
-             )}
-             
-             <TouchableOpacity style={{marginTop: 15}} onPress={() => setIsSettingsVisible(false)}>
-                <Text style={{color: Colors.textMuted, fontWeight: 'bold'}}>Close</Text>
+             <TouchableOpacity style={styles.actionBtn} onPress={exportNotes}>
+                <Ionicons name="download-outline" size={24} color={MM_Colors.primary} style={{marginRight: 10}} />
+                <Text style={styles.actionText}>Export all notes</Text>
+             </TouchableOpacity>
+             <TouchableOpacity style={styles.actionBtn} onPress={startSetup}>
+                <Ionicons name="key-outline" size={24} color={MM_Colors.primary} style={{marginRight: 10}} />
+                <Text style={styles.actionText}>Reset PIN</Text>
+             </TouchableOpacity>
+             <TouchableOpacity style={[styles.actionBtn, {backgroundColor: '#ffefef'}]} onPress={() => {
+                Alert.alert("Wipe Journal", "This will delete all notes permanently. Continue?", [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Wipe All", style: "destructive", onPress: async () => {
+                      await AsyncStorage.removeItem('@daily_notes_v3');
+                      setNotes([]);
+                      setIsSettingsVisible(false);
+                  }}
+                ]);
+             }}>
+                <Ionicons name="trash-outline" size={24} color={MM_Colors.error} style={{marginRight: 10}} />
+                <Text style={[styles.actionText, {color: MM_Colors.error}]}>Delete All Musings</Text>
+             </TouchableOpacity>
+             <TouchableOpacity onPress={() => setIsSettingsVisible(false)} style={{marginTop: 20}}>
+                <Text style={{color: MM_Colors.onSurfaceVariant, fontWeight: '700'}}>CLOSE</Text>
              </TouchableOpacity>
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  authContainer: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  authTitle: { ...Typography.title, marginBottom: 20 },
-  pinDisplay: { ...Typography.header, letterSpacing: 20, marginBottom: 40, height: 40, color: Colors.primary },
-  numpad: { flexDirection: 'row', flexWrap: 'wrap', width: 280, justifyContent: 'space-between' },
-  numBtn: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.surfaceHighlight, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-  numText: { ...Typography.header },
+  mainContainer: { flex: 1, backgroundColor: MM_Colors.background },
+  authContainer: { flex: 1, backgroundColor: MM_Colors.surface, alignItems: 'center' },
+  bgDecoration1: { position: 'absolute', top: -height * 0.1, left: -width * 0.1, width: width * 0.4, height: width * 0.4, borderRadius: width * 0.2, backgroundColor: 'rgba(64, 82, 182, 0.05)' },
+  bgDecoration2: { position: 'absolute', bottom: -height * 0.1, right: -width * 0.1, width: width * 0.5, height: width * 0.5, borderRadius: width * 0.25, backgroundColor: 'rgba(118, 86, 0, 0.05)' },
 
-  container: { flex: 1, backgroundColor: Colors.background, padding: 20, paddingTop: 60 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  headerTitle: { ...Typography.header },
-  warningBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#332b00', padding: 10, borderRadius: 12, marginBottom: 15 },
-  row: { justifyContent: 'space-between' },
-  noteCard: { backgroundColor: Colors.surface, padding: 15, borderRadius: 16, width: '48%', marginBottom: 15, borderWidth: 1, borderColor: Colors.border, height: 140 },
-  noteTitle: { ...Typography.title, fontSize: 16, marginBottom: 5, flex: 1, paddingRight: 5 },
-  noteDate: { ...Typography.caption, fontSize: 12, marginBottom: 8 },
-  noteContent: { ...Typography.body, fontSize: 14, color: Colors.textSecondary },
-  
-  moodSelector: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, backgroundColor: Colors.surface, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: Colors.border },
-  moodBadge: { padding: 5, borderRadius: 20, marginHorizontal: 3 },
-  moodActive: { backgroundColor: Colors.primary + '50' },
-  
-  titleInput: { ...Typography.header, marginVertical: 10, padding: 10 },
-  contentInput: { ...Typography.body, flex: 1, padding: 10, fontSize: 16, color: Colors.text },
-  saveBtn: { backgroundColor: Colors.primary, paddingHorizontal: 15, paddingVertical: 8, borderRadius: 8 },
-  saveBtnText: { color: Colors.text, fontWeight: 'bold' },
+  authHeader: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingVertical: 16, marginTop: Platform.OS === 'ios' ? 44 : 0, backgroundColor: 'rgba(248, 250, 252, 0.5)' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backButton: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerTitle: { fontFamily: Platform.OS === 'ios' ? 'Manrope' : 'sans-serif-medium', fontWeight: '700', fontSize: 20, color: MM_Colors.primary, tracking: -0.5 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: Colors.surfaceHighlight, padding: 25, borderRadius: 20, width: '100%', alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
-  modalTitle: { ...Typography.title, marginBottom: 25 },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, width: '100%', padding: 15, borderRadius: 12, marginBottom: 10 },
-  actionText: { ...Typography.body, fontWeight: '600' }
+  authMain: { flex: 1, width: '100%', maxWidth: 448, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'center' },
+  identitySection: { alignItems: 'center', marginBottom: 48 },
+  enhancedIconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: MM_Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  authHeading: { fontFamily: Platform.OS === 'ios' ? 'Manrope' : 'sans-serif-medium', fontWeight: '800', fontSize: 30, color: MM_Colors.onBackground, tracking: -0.5, marginBottom: 4, textAlign: 'center' },
+  authSubtext: { color: MM_Colors.onSurfaceVariant, fontWeight: '500', fontSize: 14, textAlign: 'center' },
+
+  pinDisplay: { flexDirection: 'row', gap: 24, paddingVertical: 16, marginBottom: 48 },
+  pinDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: MM_Colors.outlineVariant },
+  pinDotActive: { backgroundColor: MM_Colors.primary, transform: [{ scale: 1.2 }], shadowColor: MM_Colors.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 12 },
+
+  keypad: { width: '100%', maxWidth: 320, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 32 },
+  keypadBtn: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
+  keypadBtnText: { fontFamily: Platform.OS === 'ios' ? 'Manrope' : 'sans-serif-medium', fontWeight: '700', fontSize: 24, color: MM_Colors.onSurface },
+
+  forgotLink: { marginTop: 16, paddingVertical: 16 },
+  forgotLinkText: { color: MM_Colors.primary, fontWeight: '600', fontSize: 14, letterSpacing: 1 },
+
+  appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 60 : 20, paddingBottom: 15, backgroundColor: MM_Colors.background },
+  headerLeftAppBar: { flexDirection: 'row', alignItems: 'center' },
+  profileCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: MM_Colors.surfaceContainer, overflow: 'hidden' },
+  profileImg: { width: '100%', height: '100%' },
+  logoText: { marginLeft: 12, fontSize: 16, fontWeight: '800', color: MM_Colors.primary, letterSpacing: -0.5 },
+  searchBtnTop: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', elevation: 2 },
+
+  editorialHeader: { padding: 24, paddingTop: 10 },
+  heroTitle: { fontSize: 48, fontWeight: '900', color: MM_Colors.onSurface, letterSpacing: -2 },
+  heroSub: { fontSize: 16, color: MM_Colors.onSurfaceVariant, marginTop: 12, lineHeight: 24, maxWidth: '90%' },
+
+  searchSection: { paddingHorizontal: 24, marginBottom: 20 },
+  searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', paddingHorizontal: 20, height: 60, borderRadius: 20, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10 },
+  searchInput: { flex: 1, fontSize: 16, fontWeight: '600', color: MM_Colors.onSurface },
+
+  filterBar: { paddingHorizontal: 24, marginBottom: 30, flexGrow: 0 },
+  filterChip: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 15, backgroundColor: '#FFF', marginRight: 10, elevation: 2 },
+  filterChipActive: { backgroundColor: MM_Colors.primary },
+  filterChipText: { fontSize: 14, fontWeight: '700', color: MM_Colors.onSurfaceVariant },
+
+  notesGrid: { paddingHorizontal: 24, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  noteCardLarge: { width: '48%', backgroundColor: '#FFF', padding: 20, borderRadius: 28, marginBottom: 15, elevation: 2, shadowColor: '#2C2A51', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 12 },
+  noteTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  tagBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: MM_Colors.surfaceContainerHigh },
+  tagText: { fontSize: 10, fontWeight: '800', color: MM_Colors.primary },
+  noteDateText: { fontSize: 11, color: MM_Colors.onSurfaceVariant, fontWeight: '600' },
+  noteCardTitle: { fontSize: 18, fontWeight: '800', color: MM_Colors.onSurface, marginBottom: 8 },
+  noteCardContent: { fontSize: 14, color: MM_Colors.onSurfaceVariant, lineHeight: 20, marginBottom: 15 },
+  noteBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+
+  fabMain: { position: 'absolute', bottom: 40, right: 24, width: 72, height: 72, borderRadius: 28, elevation: 8, shadowColor: MM_Colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 15 },
+  fabInner: { width: '100%', height: '100%', borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
+
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 20 },
+  headerTitleMain: { fontSize: 20, fontWeight: '800', color: MM_Colors.onSurface },
+  saveBtn: { backgroundColor: MM_Colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
+  saveBtnText: { color: '#FFF', fontWeight: '800' },
+
+  editControls: { paddingHorizontal: 24, marginBottom: 20 },
+  labelSmall: { fontSize: 12, fontWeight: '800', color: MM_Colors.primary, marginBottom: 10, letterSpacing: 1 },
+  moodSelector: { marginBottom: 20 },
+  moodBadge: { padding: 10, borderRadius: 12, backgroundColor: MM_Colors.surfaceContainerLow, marginRight: 10 },
+  moodActive: { backgroundColor: MM_Colors.surfaceContainerHigh, borderWidth: 1, borderColor: MM_Colors.primary },
+  catSelector: { marginBottom: 10 },
+  catChip: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10, backgroundColor: MM_Colors.surfaceContainerLow, marginRight: 10 },
+  catChipActive: { backgroundColor: MM_Colors.primary },
+  catChipText: { fontWeight: '700', color: MM_Colors.onSurfaceVariant },
+
+  titleInput: { fontSize: 32, fontWeight: '900', color: MM_Colors.onSurface, paddingHorizontal: 24, marginBottom: 10 },
+  contentInput: { flex: 1, fontSize: 18, color: MM_Colors.onSurfaceVariant, paddingHorizontal: 24, lineHeight: 28 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(44, 42, 81, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#FFF', borderRadius: 32, padding: 32, width: '100%', alignItems: 'center' },
+  modalTitle: { fontSize: 24, fontWeight: '800', color: MM_Colors.onSurface, marginBottom: 25 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: MM_Colors.background, width: '100%', padding: 18, borderRadius: 20, marginBottom: 12 },
+  actionText: { fontSize: 16, fontWeight: '700', color: MM_Colors.onSurface },
+  emptyText: { textAlign: 'center', marginTop: 100, color: MM_Colors.onSurfaceVariant, fontSize: 16 },
+
+  bottomNav: { position: 'absolute', bottom: 0, width: '100%', height: 90, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingBottom: Platform.OS === 'ios' ? 24 : 12, backgroundColor: 'rgba(255, 255, 255, 0.8)', borderTopLeftRadius: 32, borderTopRightRadius: 32, elevation: 20, shadowColor: '#2c2a51', shadowOpacity: 0.06, shadowRadius: 24 },
+  navItem: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 8 },
+  navItemActive: { transform: [{ scale: 1.05 }] },
+  navItemActiveBg: { position: 'absolute', width: '100%', height: '100%', backgroundColor: '#f0f2ff', borderRadius: 16 },
+  navLabel: { fontSize: 10, fontWeight: '600', marginTop: 4, color: MM_Colors.slate400, letterSpacing: 1 },
 });

@@ -19,9 +19,9 @@ const NavigationTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: Colors.background,
-    card: Colors.surfaceHighlight,
-    text: Colors.text,
+    background: '#F9F5FF',
+    card: '#FFFFFF',
+    text: '#2C2A51',
   },
 };
 
@@ -31,13 +31,13 @@ function TabNavigator() {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: Colors.surfaceHighlight,
-          borderTopColor: Colors.border,
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#E9E5FF',
           height: 90,
           paddingTop: 10,
         },
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarActiveTintColor: '#4052B6',
+        tabBarInactiveTintColor: '#5A5781',
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: any = 'home';
           if (route.name === 'Dashboard') {
@@ -72,7 +72,10 @@ function TabNavigator() {
 export default function AppNavigator() {
   return (
     <NavigationContainer theme={NavigationTheme}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right', // Enables swipe-to-change between stack screens if applicable
+      }}>
         <Stack.Screen name="MainTabs" component={TabNavigator} />
         <Stack.Screen 
           name="VaultSettingsAuth" 

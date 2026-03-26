@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StatusBar, Alert, View, Text, Animated, StyleSheet } from 'react-native';
-import * as MediaLibrary from 'expo-media-library';
+import { StatusBar, View, Text, Animated, StyleSheet } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 
 export default function App() {
@@ -8,20 +7,15 @@ export default function App() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // Start fade in immediately
     Animated.timing(fadeAnim, {
-      toValue: 1, duration: 800, useNativeDriver: true
+      toValue: 1, duration: 1000, useNativeDriver: true
     }).start(() => {
+       // Hold for 1.5s then fade out
        Animated.timing(fadeAnim, {
-          toValue: 0, duration: 800, delay: 1800, useNativeDriver: true
+          toValue: 0, duration: 800, delay: 1500, useNativeDriver: true
        }).start(() => setShowSplash(false));
     });
-
-    (async () => {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Storage permission is required to access files.');
-      }
-    })();
   }, []);
 
   if (showSplash) {
@@ -38,14 +32,14 @@ export default function App() {
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor="#1E1E2C" />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <AppNavigator />
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  splashContainer: { flex: 1, backgroundColor: '#1E1E2C', justifyContent: 'center', alignItems: 'center' },
-  splashText: { color: '#8E8E93', fontSize: 16, fontWeight: '600', marginBottom: 8, letterSpacing: 4, textTransform: 'uppercase' },
-  splashTitle: { color: '#FFD700', fontSize: 42, fontWeight: 'bold', letterSpacing: 1, textShadowColor: 'rgba(255, 215, 0, 0.3)', textShadowOffset: {width: 0, height: 2}, textShadowRadius: 10 }
+  splashContainer: { flex: 1, backgroundColor: '#F9F5FF', justifyContent: 'center', alignItems: 'center' },
+  splashText: { color: '#5A5781', fontSize: 16, fontWeight: '600', marginBottom: 8, letterSpacing: 4, textTransform: 'uppercase' },
+  splashTitle: { color: '#4052B6', fontSize: 42, fontWeight: 'bold', letterSpacing: 1 }
 });
