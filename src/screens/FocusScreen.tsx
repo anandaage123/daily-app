@@ -308,8 +308,6 @@ export default function FocusScreen() {
             <Ionicons name="options" size={24} color={MM_Colors.primary} />
           </TouchableOpacity>
         </View>
-
-        <View style={{ height: 40 }} />
       </ScrollView>
 
       <Modal visible={showCustomModal} transparent animationType="slide">
@@ -356,8 +354,8 @@ const styles = StyleSheet.create({
   logoText: { fontSize: 24, fontWeight: '900', color: MM_Colors.primary, letterSpacing: -1 },
   headerIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 
-  scrollContent: { padding: 24, paddingTop: 30 },
-  timerContainer: { alignItems: 'center', marginBottom: 60, position: 'relative' },
+  scrollContent: { padding: 24, paddingTop: 10, flexGrow: 1, paddingBottom: 20 },
+  timerContainer: { alignItems: 'center', marginBottom: 40, marginTop: 20, position: 'relative' },
   glowRing: {
     width: 280,
     height: 280,
@@ -394,7 +392,7 @@ const styles = StyleSheet.create({
   presetBtnText: { fontWeight: '700', color: MM_Colors.text },
   presetBtnTextActive: { color: '#FFF' },
 
-  controls: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 40 },
+  controls: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
   secondaryBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', elevation: 2 },
   mainBtn: { flex: 1, height: 72, borderRadius: 36, overflow: 'hidden', elevation: 5 },
   mainBtnGradient: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12 },

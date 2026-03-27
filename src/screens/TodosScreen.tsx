@@ -180,9 +180,7 @@ export default function TodosScreen() {
         <View style={styles.headerLeft}>
            <Text style={styles.logoText}>Daily Tasks</Text>
         </View>
-        <TouchableOpacity style={styles.searchBtn} onPress={() => setIsClearModalVisible(true)}>
-          <Ionicons name="trash-outline" size={24} color={MM_Colors.primary} />
-        </TouchableOpacity>
+
       </View>
 
       <FlatList

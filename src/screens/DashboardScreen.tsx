@@ -293,9 +293,14 @@ export default function DashboardScreen() {
   };
 
   const deleteHabit = (id: string) => {
-        const updated = habits.filter(h => h.id !== id);
-        setHabits(updated);
-        AsyncStorage.setItem('@habits_v3', JSON.stringify(updated));
+      Alert.alert('Delete Ritual', 'Remove this ritual from your daily hub?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: () => {
+              const updated = habits.filter(h => h.id !== id);
+              setHabits(updated);
+              AsyncStorage.setItem('@habits_v3', JSON.stringify(updated));
+          }}
+      ]);
   };
 
   const addHabit = () => {

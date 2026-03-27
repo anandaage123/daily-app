@@ -1,56 +1,58 @@
-# Methodic Muse - Project Map & Agent Instructions
+# Methodic Muse - Agent Master Guide
 
-## Project Overview
-A holistic productivity and privacy app built with Expo, React Native, and TypeScript. 
-Theme: "Methodic Muse" - minimalist, elegant, dark-themed (deep purples, slate, and high-contrast text).
+## 1. Project Identity & Design System
+**Methodic Muse** is a minimalist, high-focus productivity ecosystem.
+- **Theme:** Dark-mode elegance. High contrast whites on deep slates and purples.
+- **Palette (`MM_Colors`):**
+    - `primary`: `#4052B6` (Royal Muse Blue)
+    - `primaryLight`: `#8899FF`
+    - `background`: `#F9F5FF` (Soft UI background)
+    - `surface`: `#FFFFFF`
+    - `text`: `#2C2A51` (Deep Slate)
+    - `secondary`: `#765600` (Gold)
+    - `tertiary`: `#006947` (Green)
+    - `error`: `#B41340` (Ruby)
 
-## Project Structure
-- `src/screens/`: Main application features.
-- `src/navigation/`: React Navigation configuration.
-- `src/theme/`: Global color palette (`MM_Colors`) and typography.
-- `assets/`: Static assets (images, fonts, sounds).
+## 2. File & Functionality Registry
 
-## Key Files & Functionalities
+### Core
+- `App.tsx`: Entry point with `StatusBar` and `AppNavigator`.
+- `src/navigation/AppNavigator.tsx`: Bottom Tab navigation (Dashboard, Tasks, Wallet, Focus, Journal) and Stack navigation for auth-protected Vault.
+- `src/theme/Theme.ts`: Central source of truth for colors and typography.
 
-### 1. Dashboard (`src/screens/DashboardScreen.tsx`)
-- **Greeting & Date**: Dynamic greeting based on time.
-- **Quotes**: Swipeable quote card fetching from `dummyjson.com/quotes/random`.
-- **Daily Rituals**: Habit tracking with icon selection. Supports toggle and long-press to delete.
-- **Weather**: Integrated with `expo-location` and `open-meteo`. Location-aware weather updates.
-- **Focus Metrics**: Dynamic progress bars for Ritual Completion and Budget Health.
-- **Vault Entry**: Hidden entry via long-press (2s) on the "Daily Hub" logo.
+### Features (`src/screens/`)
+- **Dashboard (`DashboardScreen.tsx`)**:
+    - **Rituals:** Persistent habits (`@habits_v3`). Toggle & Long-press delete.
+    - **Quotes:** Fetched from DummyJSON API. Interactive swipe (PanResponder) with spring animations.
+    - **Atmosphere:** GPS weather widget. Uses `expo-location` and Open-Meteo.
+    - **Metrics:** Real-time progress bars for habits and wallet health.
+    - **Vault Entry:** Long-press (2s) on "Daily Hub" logo.
+- **Deep Focus (`FocusScreen.tsx`)**:
+    - **Timer:** Pomodoro engine with custom Work/Break timings.
+    - **Zen Mode:** Pulse animation (scale 1.0 <-> 1.1) synchronized with breathing labels.
+    - **Audio:** `expo-audio` for session completion.
+- **Tasks (`TodosScreen.tsx`)**:
+    - **Ledger:** Priority-based tasking. Long-press to set "Primary Focus".
+    - **Sweep:** Custom confirmation modal to clear tasks.
+- **Curated Journal (`NotesScreen.tsx`)**:
+    - **Security:** 6-digit PIN gate.
+    - **Musings:** Entry creation with mood emojis, category tags, and full-text search.
+    - **Export:** Sharing ledger via system share sheet.
+- **Secure Vault (`VaultScreen.tsx`)**:
+    - **Encryption:** Dual identities (Primary vs Decoy PINs).
+    - **Storage:** Secure media gallery (Images/Videos) and Password Manager.
+    - **Gallery:** Fullscreen native video playback (`expo-video`).
+- **Daily Wallet (`BudgetScreen.tsx`)**:
+    - **History:** Date-grouped `SectionList`.
+    - **Logic:** `Balance = Limit - Expenses + Income`.
+    - **Localization:** Auto-symbol detection via Dashboard location sync.
 
-### 2. Deep Focus (`src/screens/FocusScreen.tsx`)
-- **Timer**: Pomodoro timer with 'Work' and 'Break' modes.
-- **Breathing Animation**: Pulse animation (max 1.08x) during inhalation/exhalation cycles.
-- **Audio**: Uses `expo-audio` for timer end alerts.
-- **Presets**: Quick-select buttons for common durations.
-
-### 3. Journal (`src/screens/NotesScreen.tsx`)
-- **Security**: Protected by a 6-digit PIN. Supports Reset PIN via email.
-- **Features**: Create/Edit/Delete musings with mood and category tagging.
-- **Search & Filter**: Search by text and filter by category (Personal, Work, Ideas).
-- **Export**: Share journal entries as a text file.
-
-### 4. Daily Tasks (`src/screens/TodosScreen.tsx`)
-- **Task Management**: Add tasks with Low/Med/High priority.
-- **Focus Task**: Long-press a task to set it as the primary focus.
-- **Sweep**: Custom modal to clear all tasks for a fresh start.
-
-### 5. Secure Vault (`src/screens/VaultScreen.tsx`)
-- **Dual PINs**: Primary PIN for real vault, Decoy PIN for a secondary safe space.
-- **Media**: Secure storage for images/videos. Fullscreen viewer using `expo-video` for playback.
-- **Passwords**: Encrypted storage for site credentials.
-- **Gestures**: Long-press on media thumbnails to Restore/Remove.
-
-### 6. Wallet (`src/screens/BudgetScreen.tsx`)
-- **Transactions**: Track income and expenses.
-- **Location-based Currency**: Automatically sets symbol (₹, $, €) based on recent weather location.
-- **SectionList**: Groups transactions by date for a clean ledger view.
-- **Advanced Filter**: Modal to select specific Month and Year for historical data.
-
-## Implementation Guidelines
-- **Padding/Scrolling**: Content should be centered or top-aligned. Avoid excessive bottom padding that results in empty "black space" when scrolling. Use `scrollEnabled={contentHeight > screenHeight}` where applicable.
-- **Theme Consistency**: Always use the `MM_Colors` palette.
-- **State Management**: Uses `AsyncStorage` for persistence across all modules.
-- **Permissions**: Handle location and media library permissions gracefully with alerts.
+## 3. UI/UX Implementation Rules
+- **Scrolling:** ROOT containers must use `flex: 1`. 
+    - Use `contentContainerStyle={{ flexGrow: 1 }}` in `ScrollView` to ensure centering.
+    - **Avoid hardcoded bottom spacers** (e.g., `<View style={{height: 40}}/>`) that cause excessive scroll beyond content.
+    - If content fits exactly (e.g., Auth screens), disable scrolling or use a simple `View`.
+- **Backgrounds:** Ensure root views have proper background colors to prevent black gaps during bounce.
+- **Interactivity:** Quotes are swiped, habits are toggled, focus is set via long-press.
+- **Performance:** Always use `useNativeDriver: true` for `Animated` API calls.
+- **Persistence:** All data goes through `AsyncStorage` with specific namespaced keys.
