@@ -12,8 +12,10 @@ import {
   Easing,
   Platform,
   Vibration,
-  Dimensions
+  Dimensions,
+  StatusBar
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAudioPlayer } from 'expo-audio';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -36,6 +38,9 @@ const MM_Colors = {
   white: '#FFFFFF',
 };
 
+const PRESET_WORK = [15, 25, 45, 60];
+const PRESET_BREAK = [5, 10, 15];
+
 export default function FocusScreen() {
   const navigation = useNavigation<NavigationProp<any>>();
   const [mode, setMode] = useState<'work' | 'break'>('work');
@@ -57,13 +62,29 @@ export default function FocusScreen() {
   const [breatheStatus, setBreatheStatus] = useState('Inhale');
 
   useEffect(() => {
-    let breathingAnimation: Animated.CompositeAnimation;
+    loadTimings();
+  }, []);
+
+  const loadTimings = async () => {
+    try {
+      const w = await AsyncStorage.getItem('@focus_work_min');
+      const b = await AsyncStorage.getItem('@focus_break_min');
+      if (w) {
+        setCustomWorkMin(w);
+        const secs = parseInt(w) * 60;
+        setTotalTime(secs);
+        setTimeLeft(secs);
+      }
+      if (b) setCustomBreakMin(b);
+    } catch (e) {}
+  };
+
+  useEffect(() => {
     if (isActive) {
-      // Healthy breathing sequence: 4s inhale, 4s exhale
       const breatheSequence = () => {
         setBreatheStatus('Inhale');
         Animated.parallel([
-          Animated.timing(pulseAnim, { toValue: 1.2, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1.1, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
           Animated.sequence([
             Animated.timing(breatheTextOpacity, { toValue: 1, duration: 1000, useNativeDriver: true }),
             Animated.delay(2000),
@@ -154,11 +175,32 @@ export default function FocusScreen() {
     setTimeLeft(mTime);
   };
 
-  const handleCustomSubmit = () => {
+  const setPreset = async (mins: number, type: 'work' | 'break') => {
+    setIsActive(false);
+    if (type === 'work') {
+      setCustomWorkMin(mins.toString());
+      await AsyncStorage.setItem('@focus_work_min', mins.toString());
+      if (mode === 'work') {
+        setTotalTime(mins * 60);
+        setTimeLeft(mins * 60);
+      }
+    } else {
+      setCustomBreakMin(mins.toString());
+      await AsyncStorage.setItem('@focus_break_min', mins.toString());
+      if (mode === 'break') {
+        setTotalTime(mins * 60);
+        setTimeLeft(mins * 60);
+      }
+    }
+  };
+
+  const handleCustomSubmit = async () => {
     const workMins = Math.max(1, parseInt(customWorkMin) || 25);
     const breakMins = Math.max(1, parseInt(customBreakMin) || 5);
     setCustomWorkMin(workMins.toString());
     setCustomBreakMin(breakMins.toString());
+    await AsyncStorage.setItem('@focus_work_min', workMins.toString());
+    await AsyncStorage.setItem('@focus_break_min', breakMins.toString());
     const nextTime = (mode === 'work' ? workMins : breakMins) * 60;
     setTotalTime(nextTime);
     setTimeLeft(nextTime);
@@ -181,12 +223,19 @@ export default function FocusScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <StatusBar barStyle="dark-content" />
 
-        <View style={styles.header}>
-          <Text style={styles.subTitle}>DEEP FOCUS SESSION</Text>
-          <Text style={styles.mainTitle}>{mode === 'work' ? 'Creative Flow' : 'Restful Pause'}</Text>
+      {/* Uniform App Bar */}
+      <View style={styles.headerBar}>
+        <View style={styles.headerLeft}>
+           <Text style={styles.logoText}>Deep Focus</Text>
         </View>
+        <TouchableOpacity style={styles.headerIcon} onPress={() => setShowCustomModal(true)}>
+          <Ionicons name="settings-outline" size={24} color={MM_Colors.primary} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
         <View style={styles.timerContainer}>
           <Animated.View style={[styles.glowRing, { transform: [{ scale: pulseAnim }] }]}>
@@ -228,6 +277,21 @@ export default function FocusScreen() {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.presetsSection}>
+          <Text style={styles.sectionLabel}>PRESETS ({mode.toUpperCase()})</Text>
+          <View style={styles.presetGrid}>
+            {(mode === 'work' ? PRESET_WORK : PRESET_BREAK).map(m => (
+              <TouchableOpacity
+                key={m}
+                style={[styles.presetBtn, (mode === 'work' ? customWorkMin : customBreakMin) === m.toString() && styles.presetBtnActive]}
+                onPress={() => setPreset(m, mode)}
+              >
+                <Text style={[styles.presetBtnText, (mode === 'work' ? customWorkMin : customBreakMin) === m.toString() && styles.presetBtnTextActive]}>{m}m</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
         <View style={styles.controls}>
           <TouchableOpacity style={styles.secondaryBtn} onPress={resetTimer}>
             <Ionicons name="reload" size={24} color={MM_Colors.primary} />
@@ -245,14 +309,13 @@ export default function FocusScreen() {
           </TouchableOpacity>
         </View>
 
-
-        <View style={{ height: 20 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
 
       <Modal visible={showCustomModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Timer Settings</Text>
+            <Text style={styles.modalTitle}>Duration Settings</Text>
             <View style={styles.inputContainer}>
               <View style={styles.inputItem}>
                 <Text style={styles.inputLabel}>WORK (MIN)</Text>
@@ -288,12 +351,13 @@ export default function FocusScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: MM_Colors.background },
-  scrollContent: { padding: 24, paddingTop: Platform.OS === 'ios' ? 60 : 40 },
-  header: { marginBottom: 40 },
-  subTitle: { fontSize: 12, fontWeight: '700', color: MM_Colors.primary, letterSpacing: 2, marginBottom: 4 },
-  mainTitle: { fontSize: 36, fontWeight: '800', color: MM_Colors.text, letterSpacing: -1 },
+  headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, marginTop: Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 0) + 10 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  logoText: { fontSize: 24, fontWeight: '900', color: MM_Colors.primary, letterSpacing: -1 },
+  headerIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 
-  timerContainer: { alignItems: 'center', marginBottom: 50, position: 'relative' },
+  scrollContent: { padding: 24, paddingTop: 30 },
+  timerContainer: { alignItems: 'center', marginBottom: 60, position: 'relative' },
   glowRing: {
     width: 280,
     height: 280,
@@ -316,11 +380,19 @@ const styles = StyleSheet.create({
 
   decorativeCircle: { position: 'absolute', top: -10, right: 30, width: 50, height: 50, borderRadius: 25, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5 },
 
-  modeToggle: { flexDirection: 'row', gap: 12, marginBottom: 40 },
+  modeToggle: { flexDirection: 'row', gap: 12, marginBottom: 32 },
   modeBtn: { flex: 1, height: 100, borderRadius: 28, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', elevation: 2, shadowColor: '#2C2A51', shadowOpacity: 0.05, shadowRadius: 10 },
   modeBtnActive: { backgroundColor: MM_Colors.primary },
   modeBtnText: { fontSize: 16, fontWeight: '800', color: MM_Colors.text, marginTop: 8 },
   textWhite: { color: '#FFF' },
+
+  presetsSection: { marginBottom: 32 },
+  sectionLabel: { fontSize: 12, fontWeight: '800', color: MM_Colors.textVariant, letterSpacing: 1, marginBottom: 12 },
+  presetGrid: { flexDirection: 'row', gap: 10 },
+  presetBtn: { flex: 1, height: 50, borderRadius: 15, backgroundColor: MM_Colors.white, justifyContent: 'center', alignItems: 'center', elevation: 1 },
+  presetBtnActive: { backgroundColor: MM_Colors.primary },
+  presetBtnText: { fontWeight: '700', color: MM_Colors.text },
+  presetBtnTextActive: { color: '#FFF' },
 
   controls: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 40 },
   secondaryBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', elevation: 2 },

@@ -174,6 +174,17 @@ export default function TodosScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
+
+      {/* Uniform App Bar */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+           <Text style={styles.logoText}>Daily Tasks</Text>
+        </View>
+        <TouchableOpacity style={styles.searchBtn} onPress={() => setIsClearModalVisible(true)}>
+          <Ionicons name="trash-outline" size={24} color={MM_Colors.primary} />
+        </TouchableOpacity>
+      </View>
+
       <FlatList
         data={todos}
         keyExtractor={item => item.id}
@@ -309,7 +320,12 @@ export default function TodosScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: MM_Colors.background },
-  listContent: { padding: 24, paddingTop: Platform.OS === 'ios' ? 60 : 40 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, marginTop: Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 0) + 10 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  logoText: { fontSize: 24, fontWeight: '900', color: MM_Colors.primary, letterSpacing: -1 },
+  searchBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+
+  listContent: { padding: 24, paddingTop: 10 },
   headerContent: { marginBottom: 24 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   dateText: { fontSize: 12, fontWeight: '700', color: MM_Colors.textVariant, letterSpacing: 1.5 },

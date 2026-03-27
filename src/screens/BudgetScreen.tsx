@@ -15,6 +15,7 @@ interface Expense {
   date: string;
   category: string;
   type: 'expense' | 'income';
+  timestamp: number;
 }
 
 const MM_Colors = {
@@ -57,6 +58,11 @@ export default function BudgetScreen() {
   const [budgetLimit, setBudgetLimit] = useState('4500');
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [isLimitModalVisible, setIsLimitModalVisible] = useState(false);
+  const [currencySymbol, setCurrencySymbol] = useState('$');
+
+  // Filter State
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedMonthYear] = useState(new Date().getFullYear());
 
   // New Expense State
   const [newTitle, setNewTitle] = useState('');
@@ -66,6 +72,8 @@ export default function BudgetScreen() {
 
   useEffect(() => {
     loadData();
+    loadCurrency();
+    checkMonthlyReset();
   }, []);
 
   const loadData = async () => {
@@ -76,6 +84,29 @@ export default function BudgetScreen() {
       const storedLimit = await AsyncStorage.getItem('@budget_limit_v2');
       if (storedLimit) setBudgetLimit(storedLimit);
     } catch(e) {}
+  };
+
+  const loadCurrency = async () => {
+    try {
+      const countryCode = await AsyncStorage.getItem('@user_country_code');
+      if (countryCode) {
+        // Map common country codes to currency symbols
+        const currencyMap: { [key: string]: string } = {
+          'US': '$', 'IN': '₹', 'GB': '£', 'EU': '€', 'JP': '¥', 'CN': '¥', 'RU': '₽', 'BR': 'R$', 'CA': '$', 'AU': '$', 'DE': '€', 'FR': '€'
+        };
+        setCurrencySymbol(currencyMap[countryCode] || '$');
+      }
+    } catch (e) {}
+  };
+
+  const checkMonthlyReset = async () => {
+    try {
+      const lastReset = await AsyncStorage.getItem('@budget_last_reset_month');
+      const currentMonth = new Date().getMonth().toString();
+      if (lastReset !== currentMonth) {
+        await AsyncStorage.setItem('@budget_last_reset_month', currentMonth);
+      }
+    } catch (e) {}
   };
 
   const saveData = async (newExpenses: Expense[], newLimit?: string) => {
@@ -90,13 +121,15 @@ export default function BudgetScreen() {
   const handleAddTransaction = () => {
     const amt = parseFloat(newAmount);
     if (newTitle.trim() && !isNaN(amt) && amt > 0) {
+      const now = new Date();
       const transaction: Expense = {
         id: Date.now().toString(),
         title: newTitle.trim(),
         amount: amt,
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         category: newCategory,
         type: newType,
+        timestamp: now.getTime(),
       };
       saveData([transaction, ...expenses]);
       setIsAddModalVisible(false);
@@ -107,12 +140,39 @@ export default function BudgetScreen() {
     }
   };
 
-  const totalSpent = expenses.reduce((sum, item) => item.type === 'expense' ? sum + item.amount : sum, 0);
-  const totalIncome = expenses.reduce((sum, item) => item.type === 'income' ? sum + item.amount : sum, 0);
-  const balance = totalIncome - totalSpent;
+  // Calculations
+  const now = new Date();
+  const currentMonthExpenses = expenses.filter(e => {
+    const d = new Date(e.timestamp);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+
+  const lastMonthExpenses = expenses.filter(e => {
+    const d = new Date(e.timestamp);
+    let targetMonth = now.getMonth() - 1;
+    let targetYear = now.getFullYear();
+    if (targetMonth < 0) { targetMonth = 11; targetYear -= 1; }
+    return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+  });
+
+  const totalSpentThisMonth = currentMonthExpenses.reduce((sum, item) => item.type === 'expense' ? sum + item.amount : sum, 0);
+  const totalSpentLastMonth = lastMonthExpenses.reduce((sum, item) => item.type === 'expense' ? sum + item.amount : sum, 0);
+
+  const diffPercent = totalSpentLastMonth === 0
+    ? (totalSpentThisMonth > 0 ? 100 : 0)
+    : ((totalSpentThisMonth - totalSpentLastMonth) / totalSpentLastMonth) * 100;
+
+  const totalIncome = currentMonthExpenses.reduce((sum, item) => item.type === 'income' ? sum + item.amount : sum, 0);
+  const balance = totalIncome - totalSpentThisMonth;
   const limit = parseFloat(budgetLimit);
-  const progress = Math.min(totalSpent / limit, 1);
-  const remaining = limit - totalSpent;
+  const progress = Math.min(totalSpentThisMonth / limit, 1);
+  const remaining = limit - totalSpentThisMonth;
+
+  // Filtered Display List
+  const displayExpenses = expenses.filter(e => {
+    const d = new Date(e.timestamp);
+    return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+  });
 
   const renderTransaction = ({ item }: { item: Expense }) => {
     const category = CATEGORIES.find(c => c.name === item.category) || CATEGORIES[4];
@@ -142,11 +202,13 @@ export default function BudgetScreen() {
           </View>
         </View>
         <Text style={[styles.historyAmount, { color: isExpense ? MM_Colors.error : MM_Colors.tertiary }]}>
-          {isExpense ? '-' : '+'}${item.amount.toFixed(2)}
+          {isExpense ? '-' : '+'}{currencySymbol}{item.amount.toFixed(2)}
         </Text>
       </TouchableOpacity>
     );
   };
+
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   return (
     <View style={styles.container}>
@@ -155,16 +217,10 @@ export default function BudgetScreen() {
       {/* Top App Bar */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-           <View style={styles.profileCircle}>
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200' }}
-                style={styles.profileImg}
-              />
-           </View>
-           <Text style={styles.logoText}>The Methodic Muse</Text>
+           <Text style={styles.logoText}>Daily Wallet</Text>
         </View>
         <TouchableOpacity style={styles.searchBtn}>
-          <Ionicons name="search" size={24} color={MM_Colors.primary} />
+          <Ionicons name="notifications-outline" size={24} color={MM_Colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -172,12 +228,14 @@ export default function BudgetScreen() {
         {/* Total Balance Card */}
         <LinearGradient colors={['#4052B6', '#8899FF']} start={{x: 0, y: 0}} end={{x: 1, y: 1}} style={styles.balanceCard}>
            <View style={styles.balanceDecoration} />
-           <Text style={styles.balanceLabel}>TOTAL BALANCE</Text>
-           <Text style={styles.balanceValue}>${balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
+           <Text style={styles.balanceLabel}>MONTHLY BALANCE</Text>
+           <Text style={styles.balanceValue}>{currencySymbol}{balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
            <View style={styles.balanceTrend}>
-              <View style={styles.trendBadge}>
-                 <Ionicons name="trending-up" size={14} color={MM_Colors.onTertiaryContainer} />
-                 <Text style={styles.trendText}>+12.5%</Text>
+              <View style={[styles.trendBadge, { backgroundColor: diffPercent <= 0 ? MM_Colors.tertiaryContainer : '#FFDADA' }]}>
+                 <Ionicons name={diffPercent <= 0 ? "trending-down" : "trending-up"} size={14} color={diffPercent <= 0 ? MM_Colors.onTertiaryContainer : MM_Colors.error} />
+                 <Text style={[styles.trendText, { color: diffPercent <= 0 ? MM_Colors.onTertiaryContainer : MM_Colors.error }]}>
+                   {Math.abs(diffPercent).toFixed(1)}%
+                 </Text>
               </View>
               <Text style={styles.trendSub}>vs last month</Text>
            </View>
@@ -189,19 +247,21 @@ export default function BudgetScreen() {
               <View style={styles.budgetHeader}>
                  <View>
                     <Text style={styles.bentoTitle}>Monthly Budget</Text>
-                    <Text style={styles.bentoSubtitle}>Target: ${limit.toFixed(2)}</Text>
+                    <Text style={styles.bentoSubtitle}>Target: {currencySymbol}{limit.toFixed(2)}</Text>
                  </View>
-                 <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>ON TRACK</Text>
+                 <View style={[styles.statusBadge, { backgroundColor: remaining < 0 ? '#FFDADA' : MM_Colors.secondaryContainer }]}>
+                    <Text style={[styles.statusText, { color: remaining < 0 ? MM_Colors.error : MM_Colors.onSecondaryContainer }]}>
+                      {remaining < 0 ? 'OVER BUDGET' : 'ON TRACK'}
+                    </Text>
                  </View>
               </View>
               <View style={styles.progressContainer}>
                  <View style={styles.progressBar}>
-                    <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+                    <View style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: remaining < 0 ? MM_Colors.error : MM_Colors.primary }]} />
                  </View>
                  <View style={styles.progressLabels}>
-                    <Text style={styles.progressSubText}>${totalSpent.toFixed(2)} spent</Text>
-                    <Text style={styles.progressSubText}>${remaining.toFixed(2)} remaining</Text>
+                    <Text style={styles.progressSubText}>{currencySymbol}{totalSpentThisMonth.toFixed(2)} spent</Text>
+                    <Text style={styles.progressSubText}>{remaining < 0 ? 'Over' : ''} {currencySymbol}{Math.abs(remaining).toFixed(2)} {remaining < 0 ? '!' : 'left'}</Text>
                  </View>
               </View>
            </TouchableOpacity>
@@ -211,8 +271,8 @@ export default function BudgetScreen() {
                  <Ionicons name="add-circle" size={32} color={MM_Colors.onTertiaryContainer} />
               </View>
               <View>
-                 <Text style={styles.addTitle}>Add Expense</Text>
-                 <Text style={styles.addSubtitle}>Log recent spendings.</Text>
+                 <Text style={styles.addTitle}>Add Transaction</Text>
+                 <Text style={styles.addSubtitle}>Log recent activity.</Text>
               </View>
            </TouchableOpacity>
         </View>
@@ -220,25 +280,35 @@ export default function BudgetScreen() {
         {/* History Section */}
         <View style={styles.historySection}>
            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>History</Text>
-              <TouchableOpacity>
-                 <Text style={styles.viewAllText}>View All</Text>
-              </TouchableOpacity>
+              <Text style={styles.sectionTitle}>Activity</Text>
+              <View style={styles.monthSelector}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {months.map((m, idx) => (
+                    <TouchableOpacity
+                      key={m}
+                      onPress={() => setSelectedMonth(idx)}
+                      style={[styles.monthChip, selectedMonth === idx && styles.activeMonthChip]}
+                    >
+                      <Text style={[styles.monthText, selectedMonth === idx && styles.activeMonthText]}>{m}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
            </View>
 
            <FlatList
-             data={expenses}
+             data={displayExpenses}
              renderItem={renderTransaction}
              keyExtractor={item => item.id}
              scrollEnabled={false}
-             ListEmptyComponent={<Text style={styles.emptyText}>No transactions yet!</Text>}
+             ListEmptyComponent={<Text style={styles.emptyText}>No transactions for this month.</Text>}
            />
         </View>
       </ScrollView>
 
       {/* Floating Action Button */}
       <TouchableOpacity style={styles.fab} onPress={() => setIsAddModalVisible(true)}>
-        <LinearGradient colors={['#4052B6', '#8899FF']} style={styles.fabGradient}>
+        <LinearGradient colors={[MM_Colors.primary, MM_Colors.primaryLight]} style={styles.fabGradient}>
            <Ionicons name="add" size={32} color={MM_Colors.white} />
         </LinearGradient>
       </TouchableOpacity>
@@ -271,14 +341,17 @@ export default function BudgetScreen() {
                  value={newTitle}
                  onChangeText={setNewTitle}
                />
-               <TextInput
-                 style={styles.modalInput}
-                 placeholder="0.00"
-                 placeholderTextColor={MM_Colors.textVariant}
-                 keyboardType="decimal-pad"
-                 value={newAmount}
-                 onChangeText={setNewAmount}
-               />
+               <View style={styles.amountInputContainer}>
+                  <Text style={styles.currencyPrefix}>{currencySymbol}</Text>
+                  <TextInput
+                    style={[styles.modalInput, { flex: 1, paddingLeft: 10 }]}
+                    placeholder="0.00"
+                    placeholderTextColor={MM_Colors.textVariant}
+                    keyboardType="decimal-pad"
+                    value={newAmount}
+                    onChangeText={setNewAmount}
+                  />
+               </View>
 
                <Text style={styles.labelSmall}>Category</Text>
                <View style={styles.categoryGrid}>
@@ -310,14 +383,17 @@ export default function BudgetScreen() {
          <View style={styles.modalOverlay}>
             <View style={styles.modalContentSmall}>
                <Text style={styles.modalTitle}>Set Monthly Budget</Text>
-               <TextInput
-                 style={styles.modalInput}
-                 value={budgetLimit}
-                 onChangeText={setBudgetLimit}
-                 keyboardType="numeric"
-                 autoFocus
-                 placeholderTextColor={MM_Colors.textVariant}
-               />
+               <View style={styles.amountInputContainer}>
+                  <Text style={styles.currencyPrefix}>{currencySymbol}</Text>
+                  <TextInput
+                    style={[styles.modalInput, { flex: 1, paddingLeft: 10 }]}
+                    value={budgetLimit}
+                    onChangeText={setBudgetLimit}
+                    keyboardType="numeric"
+                    autoFocus
+                    placeholderTextColor={MM_Colors.textVariant}
+                  />
+               </View>
                <TouchableOpacity
                  style={styles.saveBtnFull}
                  onPress={() => {
@@ -336,11 +412,9 @@ export default function BudgetScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: MM_Colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, marginTop: Platform.OS === 'ios' ? 44 : 10 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, marginTop: Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 0) + 10 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  profileCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: MM_Colors.primaryContainer, borderWidth: 2, borderColor: MM_Colors.white, overflow: 'hidden' },
-  profileImg: { width: '100%', height: '100%' },
-  logoText: { fontSize: 22, fontWeight: '800', color: MM_Colors.primary, letterSpacing: -0.5 },
+  logoText: { fontSize: 24, fontWeight: '900', color: MM_Colors.primary, letterSpacing: -1 },
   searchBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 
   balanceCard: { marginHorizontal: 24, borderRadius: 32, padding: 32, marginTop: 12, overflow: 'hidden', elevation: 10, shadowColor: MM_Colors.primary, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20 },
@@ -361,7 +435,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 10, fontWeight: '800', color: MM_Colors.onSecondaryContainer },
   progressContainer: { gap: 12 },
   progressBar: { height: 12, backgroundColor: MM_Colors.outlineVariant, borderRadius: 10, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: MM_Colors.primary, borderRadius: 10 },
+  progressFill: { height: '100%', borderRadius: 10 },
   progressLabels: { flexDirection: 'row', justifyContent: 'space-between' },
   progressSubText: { fontSize: 12, fontWeight: '700', color: MM_Colors.textVariant },
 
@@ -371,9 +445,14 @@ const styles = StyleSheet.create({
   addSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
 
   historySection: { paddingHorizontal: 24, marginTop: 40 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  sectionTitle: { fontSize: 24, fontWeight: '800', color: MM_Colors.text },
-  viewAllText: { fontSize: 14, fontWeight: '800', color: MM_Colors.primary },
+  sectionHeader: { marginBottom: 24 },
+  sectionTitle: { fontSize: 24, fontWeight: '800', color: MM_Colors.text, marginBottom: 12 },
+  monthSelector: { flexDirection: 'row' },
+  monthChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: MM_Colors.surfaceContainer, marginRight: 8 },
+  activeMonthChip: { backgroundColor: MM_Colors.primary },
+  monthText: { fontWeight: '700', color: MM_Colors.textVariant },
+  activeMonthText: { color: MM_Colors.white },
+
   historyItem: { backgroundColor: MM_Colors.surface, borderRadius: 24, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
   historyLeft: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   categoryIcon: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
@@ -390,6 +469,8 @@ const styles = StyleSheet.create({
   modalContentSmall: { backgroundColor: MM_Colors.surface, borderRadius: 32, padding: 32, width: '100%', gap: 20, alignItems: 'center' },
   modalTitle: { fontSize: 22, fontWeight: '800', color: MM_Colors.text, marginBottom: 8 },
   modalInput: { backgroundColor: MM_Colors.background, borderRadius: 16, padding: 18, fontSize: 16, fontWeight: '600', color: MM_Colors.text },
+  amountInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: MM_Colors.background, borderRadius: 16, paddingHorizontal: 18 },
+  currencyPrefix: { fontSize: 18, fontWeight: '800', color: MM_Colors.primary },
   typeSwitcher: { flexDirection: 'row', backgroundColor: MM_Colors.background, borderRadius: 16, padding: 6 },
   typeBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12 },
   typeBtnActive: { backgroundColor: MM_Colors.surface, elevation: 2 },

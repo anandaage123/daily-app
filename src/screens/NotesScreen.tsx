@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, KeyboardAvoidingView, Platform, Keyboard, Modal, Animated, Dimensions, StatusBar, Linking, ScrollView, Image, Share, PanResponder } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Typography } from '../theme/Theme';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -52,10 +52,15 @@ export default function NotesScreen() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+
   const [isEditing, setIsEditing] = useState(false);
+  const [isViewing, setIsViewing] = useState(false);
   const [currentNote, setCurrentNote] = useState<Partial<Note>>({});
   
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+
   const isFocused = useIsFocused();
   const navigation = useNavigation<any>();
 
@@ -72,6 +77,7 @@ export default function NotesScreen() {
       setIsAuthenticated(false);
       setPin('');
       setIsEditing(false);
+      setIsViewing(false);
     }
   }, [isFocused]);
 
@@ -110,20 +116,17 @@ export default function NotesScreen() {
   };
 
   const handleForgotPin = async () => {
-    Alert.alert(
-      "Reset PIN",
-      "This will generate a new random PIN and send it to your registered email. Proceed?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Reset", style: "destructive", onPress: async () => {
-            const newPin = Math.floor(100000 + Math.random() * 900000).toString();
-            try {
-              await AsyncStorage.setItem('@journal_pin_v2', newPin);
-              Alert.alert("New PIN", `Your PIN has been reset to ${newPin} for testing.`);
-            } catch (e) {}
-        }}
-      ]
-    );
+    const url = 'mailto:anand.aage.spam@gmail.com?subject=Security PIN Reset Request&body=I have forgotten my journal PIN. Please provide instructions to reset my access.';
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert(
+        "Reset Access",
+        "Please email anand.aage.spam@gmail.com from your registered address to reset your PIN.",
+        [{ text: "OK" }]
+      );
+    }
   };
 
   const handlePin = async (p: string) => {
@@ -228,16 +231,23 @@ export default function NotesScreen() {
     
     saveNotes(updatedNotes);
     setIsEditing(false);
-    setCurrentNote({});
+    setIsViewing(true);
+    setCurrentNote(newNote);
   };
 
-  const deleteNote = (id: string) => {
-    Alert.alert('Delete Entry', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => {
-          saveNotes(notes.filter(n => n.id !== id));
-      }},
-    ]);
+  const confirmDeleteNote = (id: string) => {
+    setNoteToDelete(id);
+    setIsDeleteModalVisible(true);
+  };
+
+  const handleDeleteNote = () => {
+    if (noteToDelete) {
+      const updatedNotes = notes.filter(n => n.id !== noteToDelete);
+      saveNotes(updatedNotes);
+      setIsDeleteModalVisible(false);
+      setIsViewing(false);
+      setNoteToDelete(null);
+    }
   };
 
   const filteredNotes = notes.filter(n => {
@@ -315,9 +325,7 @@ export default function NotesScreen() {
                 <Text style={styles.keypadBtnText}>{num}</Text>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity style={styles.keypadBtn} onPress={() => {}}>
-              <MaterialIcons name="fingerprint" size={32} color={MM_Colors.primaryDim} />
-            </TouchableOpacity>
+            <View style={styles.keypadBtn} />
             <TouchableOpacity
               style={styles.keypadBtn}
               onPress={() => handlePin('0')}
@@ -340,14 +348,67 @@ export default function NotesScreen() {
     );
   }
 
+  if (isViewing) {
+    return (
+      <View style={styles.mainContainer}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => setIsViewing(false)}>
+            <Ionicons name="chevron-back" size={28} color={MM_Colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitleMain}>View Musing</Text>
+          <View style={{ flexDirection: 'row', gap: 15 }}>
+            <TouchableOpacity onPress={() => { setIsViewing(false); setIsEditing(true); }}>
+              <Ionicons name="create-outline" size={28} color={MM_Colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => confirmDeleteNote(currentNote.id!)}>
+              <Ionicons name="trash-outline" size={28} color={MM_Colors.error} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.viewContent}>
+          <View style={styles.viewMeta}>
+            <View style={styles.tagBadge}>
+              <Text style={styles.tagText}>{currentNote.category?.toUpperCase()}</Text>
+            </View>
+            <Text style={styles.viewDate}>{currentNote.date}</Text>
+            <Text style={{ fontSize: 24 }}>{currentNote.mood}</Text>
+          </View>
+          <Text style={styles.viewTitle}>{currentNote.title}</Text>
+          <Text style={styles.viewBody}>{currentNote.content}</Text>
+        </ScrollView>
+
+        <Modal visible={isDeleteModalVisible} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.confirmContent}>
+              <View style={styles.confirmIcon}>
+                <Ionicons name="trash" size={32} color={MM_Colors.error} />
+              </View>
+              <Text style={styles.confirmTitle}>Delete Musing?</Text>
+              <Text style={styles.confirmSub}>This will permanently delete this spark of inspiration. This action cannot be undone.</Text>
+              <View style={styles.confirmActions}>
+                <TouchableOpacity style={styles.cancelConfirmBtn} onPress={() => setIsDeleteModalVisible(false)}>
+                  <Text style={styles.cancelConfirmText}>KEEP IT</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.deleteConfirmBtn} onPress={handleDeleteNote}>
+                  <Text style={styles.deleteConfirmText}>DELETE</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    );
+  }
+
   if (isEditing) {
     return (
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.mainContainer}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => setIsEditing(false)}>
-            <Ionicons name="chevron-back" size={28} color={MM_Colors.primary} />
+          <TouchableOpacity onPress={() => { setIsEditing(false); if (currentNote.id) setIsViewing(true); }}>
+            <Ionicons name="close" size={28} color={MM_Colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitleMain}>Editing Note</Text>
+          <Text style={styles.headerTitleMain}>{currentNote.id ? 'Editing Musing' : 'New Musing'}</Text>
           <TouchableOpacity onPress={saveCurrentNote} style={styles.saveBtn}>
             <Text style={styles.saveBtnText}>Save</Text>
           </TouchableOpacity>
@@ -404,13 +465,7 @@ export default function NotesScreen() {
       {/* App Bar */}
       <View style={styles.appBar}>
         <View style={styles.headerLeftAppBar}>
-           <View style={styles.profileCircle}>
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200' }}
-                style={styles.profileImg}
-              />
-           </View>
-           <Text style={styles.logoText}>The Methodic Muse</Text>
+           <Text style={styles.logoText}>Daily Journal</Text>
         </View>
         <TouchableOpacity style={styles.searchBtnTop} onPress={() => setIsSettingsVisible(true)}>
            <Ionicons name="settings-outline" size={24} color={MM_Colors.primary} />
@@ -452,8 +507,8 @@ export default function NotesScreen() {
                <TouchableOpacity
                  key={item.id}
                  style={[styles.noteCardLarge, idx % 3 === 0 && { width: '100%' }]}
-                 onPress={() => { setCurrentNote(item); setIsEditing(true); }}
-                 onLongPress={() => deleteNote(item.id)}
+                 onPress={() => { setCurrentNote(item); setIsViewing(true); }}
+                 onLongPress={() => confirmDeleteNote(item.id)}
                >
                  <View style={styles.noteTop}>
                     <View style={styles.tagBadge}>
@@ -465,8 +520,8 @@ export default function NotesScreen() {
                  <Text style={styles.noteCardContent} numberOfLines={idx % 3 === 0 ? 3 : 2}>{item.content}</Text>
                  <View style={styles.noteBottom}>
                     <Text style={{fontSize: 18}}>{item.mood}</Text>
-                    <TouchableOpacity onPress={() => deleteNote(item.id)}>
-                       <Ionicons name="ellipsis-horizontal" size={20} color={MM_Colors.onSurfaceVariant} />
+                    <TouchableOpacity onPress={() => confirmDeleteNote(item.id)}>
+                       <Ionicons name="trash-outline" size={20} color={MM_Colors.onSurfaceVariant} />
                     </TouchableOpacity>
                  </View>
                </TouchableOpacity>
@@ -520,6 +575,27 @@ export default function NotesScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Main Delete Confirmation Modal */}
+      <Modal visible={isDeleteModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmContent}>
+            <View style={styles.confirmIcon}>
+              <Ionicons name="trash" size={32} color={MM_Colors.error} />
+            </View>
+            <Text style={styles.confirmTitle}>Discard Musing?</Text>
+            <Text style={styles.confirmSub}>This spark of inspiration will be permanently removed from your curated space.</Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={styles.cancelConfirmBtn} onPress={() => { setIsDeleteModalVisible(false); setNoteToDelete(null); }}>
+                <Text style={styles.cancelConfirmText}>KEEP IT</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteConfirmBtn} onPress={handleDeleteNote}>
+                <Text style={styles.deleteConfirmText}>DISCARD</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -530,7 +606,7 @@ const styles = StyleSheet.create({
   bgDecoration1: { position: 'absolute', top: -height * 0.1, left: -width * 0.1, width: width * 0.4, height: width * 0.4, borderRadius: width * 0.2, backgroundColor: 'rgba(64, 82, 182, 0.05)' },
   bgDecoration2: { position: 'absolute', bottom: -height * 0.1, right: -width * 0.1, width: width * 0.5, height: width * 0.5, borderRadius: width * 0.25, backgroundColor: 'rgba(118, 86, 0, 0.05)' },
 
-  authHeader: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingVertical: 16, marginTop: Platform.OS === 'ios' ? 44 : 0, backgroundColor: 'rgba(248, 250, 252, 0.5)' },
+  authHeader: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingVertical: 16, marginTop: Platform.OS === 'ios' ? 80 : (StatusBar.currentHeight || 0) + 30, backgroundColor: 'rgba(248, 250, 252, 0.5)' },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { fontFamily: Platform.OS === 'ios' ? 'Manrope' : 'sans-serif-medium', fontWeight: '700', fontSize: 20, color: MM_Colors.primary, tracking: -0.5 },
@@ -552,11 +628,11 @@ const styles = StyleSheet.create({
   forgotLink: { marginTop: 16, paddingVertical: 16 },
   forgotLinkText: { color: MM_Colors.primary, fontWeight: '600', fontSize: 14, letterSpacing: 1 },
 
-  appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 60 : 20, paddingBottom: 15, backgroundColor: MM_Colors.background },
+  appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 80 : (StatusBar.currentHeight || 0) + 30, paddingBottom: 15, backgroundColor: MM_Colors.background },
   headerLeftAppBar: { flexDirection: 'row', alignItems: 'center' },
   profileCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: MM_Colors.surfaceContainer, overflow: 'hidden' },
   profileImg: { width: '100%', height: '100%' },
-  logoText: { marginLeft: 12, fontSize: 16, fontWeight: '800', color: MM_Colors.primary, letterSpacing: -0.5 },
+  logoText: { fontSize: 24, fontWeight: '900', color: MM_Colors.primary, letterSpacing: -1 },
   searchBtnTop: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', elevation: 2 },
 
   editorialHeader: { padding: 24, paddingTop: 10 },
@@ -585,7 +661,7 @@ const styles = StyleSheet.create({
   fabMain: { position: 'absolute', bottom: 40, right: 24, width: 72, height: 72, borderRadius: 28, elevation: 8, shadowColor: MM_Colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 15 },
   fabInner: { width: '100%', height: '100%', borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
 
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 20 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 80 : (StatusBar.currentHeight || 0) + 30, paddingBottom: 20 },
   headerTitleMain: { fontSize: 20, fontWeight: '800', color: MM_Colors.onSurface },
   saveBtn: { backgroundColor: MM_Colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
   saveBtnText: { color: '#FFF', fontWeight: '800' },
@@ -593,15 +669,21 @@ const styles = StyleSheet.create({
   editControls: { paddingHorizontal: 24, marginBottom: 20 },
   labelSmall: { fontSize: 12, fontWeight: '800', color: MM_Colors.primary, marginBottom: 10, letterSpacing: 1 },
   moodSelector: { marginBottom: 20 },
-  moodBadge: { padding: 10, borderRadius: 12, backgroundColor: MM_Colors.surfaceContainerLow, marginRight: 10 },
+  moodBadge: { padding: 10, borderRadius: 12, backgroundColor: MM_Colors.surfaceContainer, marginRight: 10 },
   moodActive: { backgroundColor: MM_Colors.surfaceContainerHigh, borderWidth: 1, borderColor: MM_Colors.primary },
   catSelector: { marginBottom: 10 },
-  catChip: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10, backgroundColor: MM_Colors.surfaceContainerLow, marginRight: 10 },
+  catChip: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10, backgroundColor: MM_Colors.surfaceContainer, marginRight: 10 },
   catChipActive: { backgroundColor: MM_Colors.primary },
   catChipText: { fontWeight: '700', color: MM_Colors.onSurfaceVariant },
 
   titleInput: { fontSize: 32, fontWeight: '900', color: MM_Colors.onSurface, paddingHorizontal: 24, marginBottom: 10 },
   contentInput: { flex: 1, fontSize: 18, color: MM_Colors.onSurfaceVariant, paddingHorizontal: 24, lineHeight: 28 },
+
+  viewContent: { paddingHorizontal: 24, paddingTop: 10, paddingBottom: 100 },
+  viewMeta: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  viewDate: { fontSize: 14, fontWeight: '700', color: MM_Colors.onSurfaceVariant },
+  viewTitle: { fontSize: 36, fontWeight: '900', color: MM_Colors.onSurface, marginBottom: 20, letterSpacing: -1 },
+  viewBody: { fontSize: 18, color: MM_Colors.onSurfaceVariant, lineHeight: 28 },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(44, 42, 81, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#FFF', borderRadius: 32, padding: 32, width: '100%', alignItems: 'center' },
@@ -609,6 +691,16 @@ const styles = StyleSheet.create({
   actionBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: MM_Colors.background, width: '100%', padding: 18, borderRadius: 20, marginBottom: 12 },
   actionText: { fontSize: 16, fontWeight: '700', color: MM_Colors.onSurface },
   emptyText: { textAlign: 'center', marginTop: 100, color: MM_Colors.onSurfaceVariant, fontSize: 16 },
+
+  confirmContent: { backgroundColor: '#FFF', borderRadius: 32, padding: 32, width: '100%', alignItems: 'center' },
+  confirmIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#FFF1F1', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  confirmTitle: { fontSize: 22, fontWeight: '800', color: MM_Colors.onSurface, marginBottom: 12 },
+  confirmSub: { fontSize: 16, color: MM_Colors.onSurfaceVariant, textAlign: 'center', lineHeight: 24, marginBottom: 32 },
+  confirmActions: { flexDirection: 'row', gap: 12, width: '100%' },
+  cancelConfirmBtn: { flex: 1, height: 56, borderRadius: 20, backgroundColor: MM_Colors.background, justifyContent: 'center', alignItems: 'center' },
+  cancelConfirmText: { color: MM_Colors.onSurfaceVariant, fontWeight: '800', letterSpacing: 1 },
+  deleteConfirmBtn: { flex: 1, height: 56, borderRadius: 20, backgroundColor: MM_Colors.error, justifyContent: 'center', alignItems: 'center' },
+  deleteConfirmText: { color: '#FFF', fontWeight: '800', letterSpacing: 1 },
 
   bottomNav: { position: 'absolute', bottom: 0, width: '100%', height: 90, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingBottom: Platform.OS === 'ios' ? 24 : 12, backgroundColor: 'rgba(255, 255, 255, 0.8)', borderTopLeftRadius: 32, borderTopRightRadius: 32, elevation: 20, shadowColor: '#2c2a51', shadowOpacity: 0.06, shadowRadius: 24 },
   navItem: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 8 },

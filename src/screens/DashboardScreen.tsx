@@ -13,7 +13,9 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
-  Alert
+  Alert,
+  StatusBar,
+  PanResponder
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
@@ -80,6 +82,7 @@ export default function DashboardScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const habitScale = useRef(new Animated.Value(1)).current;
+  const quoteTranslateX = useRef(new Animated.Value(0)).current;
 
   // Weather & Quote State
   const [weather, setWeather] = useState<{temp: number, desc: string, icon: any, status: string} | null>(null);
@@ -92,7 +95,7 @@ export default function DashboardScreen() {
   useEffect(() => {
     loadHabits();
     updateWeatherByLocation(false);
-    loadDailyQuote();
+    fetchNewQuote();
 
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
@@ -109,7 +112,7 @@ export default function DashboardScreen() {
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadHabits(), updateWeatherByLocation(true), loadDailyQuote(true), loadBudgetMetrics()]);
+    await Promise.all([loadHabits(), updateWeatherByLocation(true), fetchNewQuote(), loadBudgetMetrics()]);
     setRefreshing(false);
   }, []);
 
@@ -154,27 +157,55 @@ export default function DashboardScreen() {
     }
   };
 
-  const loadDailyQuote = async (forceRefresh = false) => {
-    try {
-      const today = new Date().toDateString();
-      const storedDate = await AsyncStorage.getItem('@quote_date');
-      const storedQuote = await AsyncStorage.getItem('@daily_quote');
+  const fetchNewQuote = async (direction: 'left' | 'right' = 'right') => {
+    const exitValue = direction === 'right' ? width : -width;
+    const entryValue = direction === 'right' ? -width : width;
 
-      if (!forceRefresh && storedDate === today && storedQuote) {
-        setQuote(JSON.parse(storedQuote));
-      } else {
+    Animated.timing(quoteTranslateX, {
+      toValue: exitValue,
+      duration: 250,
+      useNativeDriver: true
+    }).start(async () => {
+      try {
         const response = await fetch('https://dummyjson.com/quotes/random');
         const data = await response.json();
-        const newQuote = { text: data.quote, author: data.author };
-        setQuote(newQuote);
-        await AsyncStorage.setItem('@quote_date', today);
-        await AsyncStorage.setItem('@daily_quote', JSON.stringify(newQuote));
+        setQuote({ text: data.quote, author: data.author });
+      } catch (error) {
+        const randomFallback = FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
+        setQuote(randomFallback);
       }
-    } catch (error) {
-      const randomFallback = FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
-      setQuote(randomFallback);
-    }
+
+      quoteTranslateX.setValue(entryValue);
+      Animated.spring(quoteTranslateX, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true
+      }).start();
+    });
   };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dx) > 20,
+      onPanResponderMove: (_, gestureState) => {
+        quoteTranslateX.setValue(gestureState.dx);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx > 80) {
+          fetchNewQuote('right');
+        } else if (gestureState.dx < -80) {
+          fetchNewQuote('left');
+        } else {
+          Animated.spring(quoteTranslateX, {
+            toValue: 0,
+            friction: 5,
+            useNativeDriver: true
+          }).start();
+        }
+      }
+    })
+  ).current;
 
   const updateWeatherByLocation = async (manual: boolean = false) => {
     setIsWeatherLoading(true);
@@ -203,6 +234,10 @@ export default function DashboardScreen() {
       const { latitude, longitude } = location.coords;
       const reverseGeocode = await Location.reverseGeocodeAsync({ latitude, longitude });
       const cityName = reverseGeocode[0]?.city || reverseGeocode[0]?.subregion || reverseGeocode[0]?.region || 'Current Location';
+
+      if (reverseGeocode[0]?.isoCountryCode) {
+          await AsyncStorage.setItem('@user_country_code', reverseGeocode[0].isoCountryCode);
+      }
 
       await fetchWeatherByCoords(latitude, longitude, cityName);
     } catch (error) {
@@ -258,9 +293,9 @@ export default function DashboardScreen() {
   };
 
   const deleteHabit = (id: string) => {
-      const updated = habits.filter(h => h.id !== id);
-      setHabits(updated);
-      AsyncStorage.setItem('@habits_v3', JSON.stringify(updated));
+        const updated = habits.filter(h => h.id !== id);
+        setHabits(updated);
+        AsyncStorage.setItem('@habits_v3', JSON.stringify(updated));
   };
 
   const addHabit = () => {
@@ -293,6 +328,7 @@ export default function DashboardScreen() {
     <Animated.View
       style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
     >
+      <StatusBar barStyle="dark-content" />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -303,17 +339,11 @@ export default function DashboardScreen() {
 
         <View style={styles.topHeader}>
           <TouchableOpacity
-            style={styles.profileRow}
             onLongPress={() => navigation.navigate('VaultSettingsAuth')}
             delayLongPress={2000}
+            activeOpacity={1}
           >
-            <View style={styles.avatarContainer}>
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200' }}
-                style={styles.avatar}
-              />
-            </View>
-            <Text style={styles.logoText}>The Methodic Muse</Text>
+            <Text style={styles.logoText}>Daily Hub</Text>
           </TouchableOpacity>
         </View>
 
@@ -324,11 +354,16 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.quoteCardWrapper}>
-          <LinearGradient colors={[MM_Colors.primary, MM_Colors.primaryLight]} style={styles.quoteCard}>
-            <MaterialCommunityIcons name="format-quote-open" size={40} color="rgba(255,255,255,0.3)" />
-            <Text style={styles.quoteText}>{quote.text}</Text>
-            <Text style={styles.quoteAuthor}>— {quote.author}</Text>
-          </LinearGradient>
+          <Animated.View
+            {...panResponder.panHandlers}
+            style={[styles.quoteCard, { transform: [{ translateX: quoteTranslateX }] }]}
+          >
+            <LinearGradient colors={[MM_Colors.primary, MM_Colors.primaryLight]} style={styles.quoteGradient}>
+              <MaterialCommunityIcons name="format-quote-open" size={40} color="rgba(255,255,255,0.3)" />
+              <Text style={styles.quoteText}>{quote.text}</Text>
+              <Text style={styles.quoteAuthor}>— {quote.author}</Text>
+            </LinearGradient>
+          </Animated.View>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -342,6 +377,7 @@ export default function DashboardScreen() {
               <TouchableOpacity
                 style={[styles.habitItem, habit.completed && styles.habitItemCompleted]}
                 onPress={() => toggleHabit(habit.id)}
+                onLongPress={() => deleteHabit(habit.id)}
               >
                 <View style={styles.habitMain}>
                   <View style={[styles.checkbox, habit.completed && { backgroundColor: MM_Colors.primary, borderColor: MM_Colors.primary }]}>
@@ -475,13 +511,10 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: MM_Colors.background },
-  scrollContent: { padding: 24, paddingTop: Platform.OS === 'ios' ? 60 : 40 },
+  scrollContent: { padding: 24, paddingTop: Platform.OS === 'ios' ? 80 : (StatusBar.currentHeight || 0) + 30 },
 
   topHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 },
-  profileRow: { flexDirection: 'row', alignItems: 'center' },
-  avatarContainer: { width: 44, height: 44, borderRadius: 22, backgroundColor: MM_Colors.surfaceContainer, overflow: 'hidden' },
-  avatar: { width: '100%', height: '100%' },
-  logoText: { marginLeft: 12, fontSize: 18, fontWeight: '800', color: MM_Colors.primary, letterSpacing: -0.5 },
+  logoText: { fontSize: 24, fontWeight: '900', color: MM_Colors.primary, letterSpacing: -1 },
 
   greetingSection: { marginBottom: 32 },
   dateLabel: { fontSize: 12, fontWeight: '700', color: MM_Colors.textVariant, letterSpacing: 1.5, marginBottom: 8 },
@@ -497,8 +530,9 @@ const styles = StyleSheet.create({
   tempUnit: { fontSize: 18, fontWeight: '700', color: MM_Colors.textVariant, marginLeft: 2 },
   weatherDecoration: { position: 'absolute', bottom: -20, right: -20, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255, 202, 83, 0.2)', blurRadius: 40 },
 
-  quoteCardWrapper: { marginBottom: 40 },
-  quoteCard: { padding: 32, borderRadius: 32, elevation: 10, shadowColor: MM_Colors.primary, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20 },
+  quoteCardWrapper: { marginBottom: 40, alignItems: 'center' },
+  quoteCard: { width: '100%', borderRadius: 32, elevation: 10, shadowColor: MM_Colors.primary, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, overflow: 'hidden' },
+  quoteGradient: { padding: 32 },
   quoteText: { fontSize: 24, fontWeight: '700', color: MM_Colors.white, letterSpacing: -0.5, lineHeight: 32, marginTop: -10 },
   quoteAuthor: { fontSize: 16, color: MM_Colors.white, opacity: 0.7, marginTop: 16, fontWeight: '600' },
 
@@ -516,8 +550,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     shadowColor: '#2C2A51',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
+    shadowOpacity: 0.04, shadowRadius: 12,
     elevation: 2
   },
   habitItemCompleted: { opacity: 0.6 },
@@ -529,17 +562,17 @@ const styles = StyleSheet.create({
   habitMeta: { fontSize: 13, color: MM_Colors.textVariant, marginTop: 2 },
   deleteBtn: { padding: 4 },
 
-  metricsCard: { backgroundColor: '#E3DFFF', borderRadius: 32, padding: 32, marginBottom: 20 },
+  metricsCard: { backgroundColor: MM_Colors.white, borderRadius: 32, padding: 32, marginBottom: 20, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
   metricsTitle: { fontSize: 22, fontWeight: '700', color: MM_Colors.text, marginBottom: 24 },
   metricRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 },
   metricLabel: { fontSize: 15, fontWeight: '600', color: MM_Colors.text },
   metricValue: { fontSize: 22, fontWeight: '800', color: MM_Colors.text },
-  progressBg: { height: 10, backgroundColor: MM_Colors.white, borderRadius: 5, overflow: 'hidden' },
+  progressBg: { height: 10, backgroundColor: MM_Colors.background, borderRadius: 5, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 5 },
   metricsFooter: { flexDirection: 'row', marginTop: 32, gap: 12 },
   primaryBtn: { flex: 1, height: 60, borderRadius: 30, backgroundColor: MM_Colors.primary, justifyContent: 'center', alignItems: 'center' },
   primaryBtnText: { color: '#FFF', fontWeight: '800', letterSpacing: 1 },
-  moreBtn: { width: 60, height: 60, borderRadius: 30, backgroundColor: MM_Colors.white, justifyContent: 'center', alignItems: 'center' },
+  moreBtn: { width: 60, height: 60, borderRadius: 30, backgroundColor: MM_Colors.background, justifyContent: 'center', alignItems: 'center' },
 
   fab: { position: 'absolute', bottom: 40, right: 24, width: 72, height: 72, borderRadius: 28, elevation: 8, shadowColor: MM_Colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 15 },
   fabInner: { width: '100%', height: '100%', borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
