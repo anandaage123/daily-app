@@ -1,11 +1,11 @@
 {
-  "version": "2.2.0",
-  "build": 7,
-  "versionCode": 7,
+  "version": "2.2.1",
+  "build": 8,
+  "versionCode": 8,
   "releaseDate": "2026-03-28",
-  "releaseNotes": "\u2022 Bug fixes and improvements",
-  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v2.2.0/Monolith.apk",
-  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v2.2.0",
+  "releaseNotes": "### 💎 Budget UI Overhaul\n- Modern glassmorphism aesthetics with deep gradients.\n- Improved padding (doubled) for a much cleaner, breathable layout.\n- Enlarged category icons and intuitive transaction layout.\n\n### 🛠 Fixes & Improvements\n- Corrected Android OS version mismatch (now shows 2.2.1 in system settings).\n- Background update checking (checks whenever the app is reopened).\n- Auto-cleaning of old APK files.",
+  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v2.2.1/Monolith.apk",
+  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v2.2.1",
   "minBuildRequired": 1,
   "forceUpdate": false
 }
