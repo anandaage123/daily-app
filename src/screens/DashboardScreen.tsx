@@ -364,8 +364,14 @@ export default function DashboardScreen() {
 
             <View style={styles.greetingSection}>
               <Text style={styles.dateLabel}>{today}</Text>
-              <Text style={styles.greetingTitle}>Rise, Hero.</Text>
-              <Text style={styles.greetingSub}>Your focus today is sharp. {habits.filter(h => !h.completed).length} rituals await your command.</Text>
+              <Text style={styles.greetingTitle}>Rise & Execute..</Text>
+              <Text style={styles.greetingSub}>
+                {habits.filter(h => h.completed).length > 0
+                  ? `${habits.filter(h => h.completed).length} of ${habits.length} rituals crushed today. Keep the streak alive.`
+                  : habits.length > 0
+                  ? `${habits.length} rituals await. Start strong.`
+                  : 'Add your first ritual and build momentum.'}
+              </Text>
             </View>
           </View>
         ))}
