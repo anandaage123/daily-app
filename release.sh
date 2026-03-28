@@ -1,112 +1,212 @@
 #!/bin/bash
-# ╔═══════════════════════════════════════════════════════════════════╗
-# ║            Monolith — Release Automation Script                   ║
-# ║  Usage: ./release.sh [patch|minor|major|x.y.z]                   ║
-# ║  Example: ./release.sh patch      → 2.0.0 → 2.0.1               ║
-# ║  Example: ./release.sh minor      → 2.0.0 → 2.1.0               ║
-# ║  Example: ./release.sh 2.5.0      → set version to 2.5.0         ║
-# ╚═══════════════════════════════════════════════════════════════════╝
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║              Monolith — Interactive Release Script                  ║
+# ║  Just run: ./release.sh  — it will guide you through everything     ║
+# ╚══════════════════════════════════════════════════════════════════════╝
 
-set -e  # Exit immediately on error
+set -e
 
-# ────────────────────────────────────────────────────────────────────
-# 1. COLORS & HELPERS
-# ────────────────────────────────────────────────────────────────────
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-RESET='\033[0m'
+# ─── Colors ──────────────────────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; BLUE='\033[0;34m'
+YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BOLD='\033[1m'
+DIM='\033[2m'; MAGENTA='\033[0;35m'; RESET='\033[0m'
 
-info()    { echo -e "${CYAN}▸${RESET} $1"; }
-success() { echo -e "${GREEN}✓${RESET} $1"; }
-warn()    { echo -e "${YELLOW}⚠${RESET}  $1"; }
-error()   { echo -e "${RED}✗${RESET}  $1"; exit 1; }
-section() { echo -e "\n${BOLD}${BLUE}━━━ $1 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"; }
+info()    { echo -e "${CYAN}  ▸${RESET} $1"; }
+success() { echo -e "${GREEN}  ✓${RESET} $1"; }
+warn()    { echo -e "${YELLOW}  ⚠${RESET}  $1"; }
+error()   { echo -e "${RED}  ✗${RESET}  $1"; exit 1; }
+dim()     { echo -e "${DIM}    $1${RESET}"; }
 
-section "Monolith Release Tool"
+divider() {
+  echo -e "${DIM}  ────────────────────────────────────────────────${RESET}"
+}
 
-# ────────────────────────────────────────────────────────────────────
-# 2. REQUIRE ARGUMENT
-# ────────────────────────────────────────────────────────────────────
-BUMP_TYPE="${1:-patch}"
+header() {
+  echo ""
+  echo -e "${BOLD}${BLUE}  ══ $1 ══${RESET}"
+  echo ""
+}
 
-if [[ -z "$BUMP_TYPE" ]]; then
-  error "Usage: ./release.sh [patch|minor|major|x.y.z]"
+banner() {
+  clear
+  echo ""
+  echo -e "${BOLD}${MAGENTA}  ███╗   ███╗ ██████╗ ███╗   ██╗ ██████╗ ██╗     ██╗████████╗██╗  ██╗${RESET}"
+  echo -e "${BOLD}${MAGENTA}  ████╗ ████║██╔═══██╗████╗  ██║██╔═══██╗██║     ██║╚══██╔══╝██║  ██║${RESET}"
+  echo -e "${BOLD}${BLUE}  ██╔████╔██║██║   ██║██╔██╗ ██║██║   ██║██║     ██║   ██║   ███████║${RESET}"
+  echo -e "${BOLD}${BLUE}  ██║╚██╔╝██║██║   ██║██║╚██╗██║██║   ██║██║     ██║   ██║   ██╔══██║${RESET}"
+  echo -e "${BOLD}${CYAN}  ██║ ╚═╝ ██║╚██████╔╝██║ ╚████║╚██████╔╝███████╗██║   ██║   ██║  ██║${RESET}"
+  echo -e "${BOLD}${CYAN}  ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝ ╚══════╝╚═╝   ╚═╝   ╚═╝  ╚═╝${RESET}"
+  echo ""
+  echo -e "  ${DIM}Release Automation Tool${RESET}"
+  echo ""
+  divider
+  echo ""
+}
+
+# ─── Show banner ──────────────────────────────────────────────────────────────
+banner
+
+# ─── Step 1: Check prerequisites ─────────────────────────────────────────────
+header "Checking Prerequisites"
+
+MISSING_TOOLS=()
+
+command -v node  &>/dev/null && success "Node.js found" || MISSING_TOOLS+=("node")
+command -v git   &>/dev/null && success "Git found"    || MISSING_TOOLS+=("git")
+
+if command -v adb &>/dev/null; then
+  success "ADB found (device install enabled)"
+  ADB_AVAILABLE=true
+else
+  warn "ADB not found — device install will be skipped"
+  ADB_AVAILABLE=false
 fi
 
-# ────────────────────────────────────────────────────────────────────
-# 3. COMPUTE NEW VERSION
-# ────────────────────────────────────────────────────────────────────
-section "Computing Version"
+if command -v gh &>/dev/null; then
+  success "GitHub CLI (gh) found — automated release enabled"
+  GH_AVAILABLE=true
+else
+  warn "GitHub CLI not found — you will need to upload APK manually"
+  GH_AVAILABLE=false
+fi
 
-CURRENT_VERSION=$(node -p "require('./app.json').expo.version")
-CURRENT_BUILD=$(node -p "
-  const v = require('./version.json');
-  v.build || 1
-")
+if [[ ${#MISSING_TOOLS[@]} -gt 0 ]]; then
+  echo ""
+  error "Missing required tools: ${MISSING_TOOLS[*]}"
+fi
+
+echo ""
+
+# ─── Step 2: Read current version ────────────────────────────────────────────
+header "Current App State"
+
+CURRENT_VERSION=$(node -p "require('./app.json').expo.version" 2>/dev/null || echo "0.0.0")
+CURRENT_BUILD=$(node -p "(require('./version.json').build || 0)" 2>/dev/null || echo "0")
 NEW_BUILD=$((CURRENT_BUILD + 1))
 
-info "Current version : ${CURRENT_VERSION} (build ${CURRENT_BUILD})"
+# Split current semver
+IFS='.' read -r CUR_MAJOR CUR_MINOR CUR_PATCH <<< "$CURRENT_VERSION"
 
-# Split semver
-IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+# Pre-compute options
+VER_PATCH="${CUR_MAJOR}.${CUR_MINOR}.$((CUR_PATCH + 1))"
+VER_MINOR="${CUR_MAJOR}.$((CUR_MINOR + 1)).0"
+VER_MAJOR="$((CUR_MAJOR + 1)).0.0"
 
-case "$BUMP_TYPE" in
-  major)
-    MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
-    ;;
-  minor)
-    MINOR=$((MINOR + 1)); PATCH=0
-    ;;
-  patch)
-    PATCH=$((PATCH + 1))
-    ;;
-  [0-9]*.[0-9]*.[0-9]*)
-    IFS='.' read -r MAJOR MINOR PATCH <<< "$BUMP_TYPE"
-    ;;
-  *)
-    error "Invalid bump type: '$BUMP_TYPE'. Use patch|minor|major or x.y.z"
-    ;;
-esac
+echo -e "  Current version : ${BOLD}${CURRENT_VERSION}${RESET}  ${DIM}(build #${CURRENT_BUILD})${RESET}"
+echo -e "  Next build #    : ${BOLD}${NEW_BUILD}${RESET}"
+echo ""
 
-NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+# ─── Step 3: Choose version ──────────────────────────────────────────────────
+header "Choose Release Version"
+
+echo -e "  ${BOLD}1)${RESET} Patch   ${CYAN}→ ${VER_PATCH}${RESET}  ${DIM}(bug fixes, small tweaks)${RESET}"
+echo -e "  ${BOLD}2)${RESET} Minor   ${CYAN}→ ${VER_MINOR}${RESET}  ${DIM}(new features, backward compatible)${RESET}"
+echo -e "  ${BOLD}3)${RESET} Major   ${CYAN}→ ${VER_MAJOR}${RESET}  ${DIM}(breaking changes, major overhaul)${RESET}"
+echo -e "  ${BOLD}4)${RESET} Custom  ${CYAN}→ type your own version number${RESET}"
+echo ""
+
+while true; do
+  echo -ne "  ${BOLD}Your choice [1/2/3/4]:${RESET} "
+  read -r VERSION_CHOICE
+
+  case "$VERSION_CHOICE" in
+    1) NEW_VERSION="$VER_PATCH"; break ;;
+    2) NEW_VERSION="$VER_MINOR"; break ;;
+    3) NEW_VERSION="$VER_MAJOR"; break ;;
+    4)
+      echo -ne "  Enter version number (e.g. 2.5.0): "
+      read -r CUSTOM_VERSION
+      if [[ "$CUSTOM_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        NEW_VERSION="$CUSTOM_VERSION"
+        break
+      else
+        warn "Invalid format. Use x.y.z (e.g. 2.0.1)"
+      fi
+      ;;
+    *)
+      warn "Please enter 1, 2, 3, or 4"
+      ;;
+  esac
+done
+
 RELEASE_DATE=$(date +%Y-%m-%d)
 TAG="v${NEW_VERSION}"
 
-success "New version: ${NEW_VERSION} (build ${NEW_BUILD})"
+echo ""
+success "Selected: ${BOLD}${NEW_VERSION}${RESET}  ${DIM}(tagged as ${TAG})${RESET}"
+echo ""
 
-# ────────────────────────────────────────────────────────────────────
-# 4. PROMPT FOR RELEASE NOTES
-# ────────────────────────────────────────────────────────────────────
-section "Release Notes"
+# ─── Step 4: Release notes ───────────────────────────────────────────────────
+header "Release Notes"
 
-echo -e "${YELLOW}Enter release notes (one item per line).${RESET}"
-echo -e "${YELLOW}Press ENTER twice when done:${RESET}\n"
+echo -e "  ${DIM}What changed in this release? Enter one item per line.${RESET}"
+echo -e "  ${DIM}Press ENTER on a blank line when done.${RESET}"
+echo ""
 
 NOTES_LINES=()
-while IFS= read -r line; do
-  [[ -z "$line" ]] && break
-  NOTES_LINES+=("• $line")
+while true; do
+  echo -ne "  ${CYAN}+${RESET} "
+  read -r NOTE_LINE
+  [[ -z "$NOTE_LINE" ]] && break
+  NOTES_LINES+=("• $NOTE_LINE")
 done
 
 if [[ ${#NOTES_LINES[@]} -eq 0 ]]; then
-  warn "No release notes entered. Using default."
+  warn "No notes entered — using default"
   NOTES_LINES=("• Bug fixes and improvements")
 fi
 
-RELEASE_NOTES=$(printf '%s\n' "${NOTES_LINES[@]}")
-echo -e "\n${GREEN}Release Notes:${RESET}"
-printf '%s\n' "${NOTES_LINES[@]}"
+RELEASE_NOTES_TEXT=$(printf '%s\n' "${NOTES_LINES[@]}")
+echo ""
+echo -e "  ${GREEN}Release notes saved:${RESET}"
+printf '    %s\n' "${NOTES_LINES[@]}"
+echo ""
 
-# ────────────────────────────────────────────────────────────────────
-# 5. UPDATE VERSION FILES
-# ────────────────────────────────────────────────────────────────────
-section "Updating Version Files"
+# ─── Step 5: Confirm ─────────────────────────────────────────────────────────
+header "Release Summary"
 
-# Update app.json
+divider
+echo ""
+echo -e "  ${BOLD}Version    :${RESET}  ${CURRENT_VERSION}  →  ${GREEN}${BOLD}${NEW_VERSION}${RESET}"
+echo -e "  ${BOLD}Build #    :${RESET}  ${CURRENT_BUILD}  →  ${GREEN}${BOLD}${NEW_BUILD}${RESET}"
+echo -e "  ${BOLD}Tag        :${RESET}  ${TAG}"
+echo -e "  ${BOLD}APK name   :${RESET}  Monolith-${NEW_VERSION}.apk"
+echo -e "  ${BOLD}Release URL:${RESET}  ${DIM}https://github.com/anandaage123/daily-app/releases/tag/${TAG}${RESET}"
+echo ""
+divider
+echo ""
+echo -e "  ${BOLD}This will:${RESET}"
+echo -e "    1. Update version in ${CYAN}app.json${RESET}, ${CYAN}package.json${RESET}, ${CYAN}UpdateService.ts${RESET}, ${CYAN}version.json${RESET}"
+echo -e "    2. Build a ${CYAN}release APK${RESET} (~5-15 min)"
+echo -e "    3. ${CYAN}Commit + tag${RESET} and ${CYAN}push${RESET} to GitHub"
+if [[ "$GH_AVAILABLE" == true ]]; then
+  echo -e "    4. ${CYAN}Create GitHub Release${RESET} and upload APK"
+else
+  echo -e "    4. ${YELLOW}Skip GitHub Release${RESET} (gh not installed)"
+fi
+if [[ "$ADB_AVAILABLE" == true ]]; then
+  echo -e "    5. ${CYAN}Install APK${RESET} on connected Android device"
+fi
+echo ""
+
+while true; do
+  echo -ne "  ${BOLD}Proceed with release? [y/N]:${RESET} "
+  read -r CONFIRM
+  case "$CONFIRM" in
+    y|Y|yes|YES) break ;;
+    n|N|no|NO|"") echo ""; warn "Release cancelled."; exit 0 ;;
+    *) warn "Please enter y or n" ;;
+  esac
+done
+
+echo ""
+echo -e "  ${GREEN}${BOLD}Starting release…${RESET}"
+echo ""
+
+# ─── Step 6: Update version files ────────────────────────────────────────────
+header "Updating Version Files"
+
+# app.json
 node -e "
   const fs = require('fs');
   const json = JSON.parse(fs.readFileSync('app.json', 'utf8'));
@@ -114,166 +214,167 @@ node -e "
   json.expo.android = json.expo.android || {};
   json.expo.android.versionCode = ${NEW_BUILD};
   fs.writeFileSync('app.json', JSON.stringify(json, null, 2) + '\n');
-  console.log('  app.json updated');
 "
+success "app.json → version ${NEW_VERSION}, versionCode ${NEW_BUILD}"
 
-# Update package.json
+# package.json
 node -e "
   const fs = require('fs');
   const json = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   json.version = '${NEW_VERSION}';
   fs.writeFileSync('package.json', JSON.stringify(json, null, 2) + '\n');
-  console.log('  package.json updated');
 "
+success "package.json → version ${NEW_VERSION}"
 
-# Update src/services/UpdateService.ts — the constants baked into the APK
+# UpdateService.ts — baked into the APK at build time
 sed -i '' "s/export const APP_VERSION = '.*';/export const APP_VERSION = '${NEW_VERSION}';/" \
   src/services/UpdateService.ts
-sed -i '' "s/export const APP_BUILD = .*;/export const APP_BUILD = ${NEW_BUILD};/" \
+sed -i '' "s/export const APP_BUILD = [0-9]*;/export const APP_BUILD = ${NEW_BUILD};/" \
   src/services/UpdateService.ts
+success "UpdateService.ts → APP_VERSION '${NEW_VERSION}', APP_BUILD ${NEW_BUILD}"
 
-success "Source version constants updated"
+echo ""
 
-# version.json is updated AFTER APK build (we need the download URL)
-info "version.json will be updated after APK is built"
-
-# ────────────────────────────────────────────────────────────────────
-# 6. BUILD RELEASE APK
-# ────────────────────────────────────────────────────────────────────
-section "Building Release APK"
-
+# ─── Step 7: Build release APK ───────────────────────────────────────────────
+header "Building Release APK"
 info "Running: npx expo run:android --variant release"
+info "This may take 5–15 minutes…"
+echo ""
+
 npx expo run:android --variant release
 
-# Locate built APK
-APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" 2>/dev/null | head -n 1)
-
-if [[ -z "$APK_PATH" ]]; then
-  error "APK build failed — no .apk file found in android/app/build/outputs/apk/release"
+# Find APK
+APK_SOURCE=$(find android/app/build/outputs/apk/release -name "*.apk" 2>/dev/null | head -n 1)
+if [[ -z "$APK_SOURCE" ]]; then
+  error "APK not found. Build may have failed."
 fi
 
-# Copy to project root with versioned name
 DEST_APK="Monolith-${NEW_VERSION}.apk"
-cp "$APK_PATH" "$DEST_APK"
+cp "$APK_SOURCE" "$DEST_APK"
 APK_SIZE=$(du -sh "$DEST_APK" | cut -f1)
 
-success "APK built: ${DEST_APK} (${APK_SIZE})"
+success "APK built: ${BOLD}${DEST_APK}${RESET}  ${DIM}(${APK_SIZE})${RESET}"
+echo ""
 
-# ────────────────────────────────────────────────────────────────────
-# 7. UPDATE version.json (with final download URL)
-# ────────────────────────────────────────────────────────────────────
-section "Updating version.json"
+# ─── Step 8: Update version.json ─────────────────────────────────────────────
+header "Updating version.json"
 
 DOWNLOAD_URL="https://github.com/anandaage123/daily-app/releases/download/${TAG}/${DEST_APK}"
 RELEASE_URL="https://github.com/anandaage123/daily-app/releases/tag/${TAG}"
 
-# Escape newlines for JSON
-NOTES_JSON=$(printf '%s\n' "${NOTES_LINES[@]}" | python3 -c "
-import sys, json
-lines = sys.stdin.read().rstrip()
-print(json.dumps(lines)[1:-1])  # strip surrounding quotes
-")
+python3 - <<PYEOF
+import json
 
-node -e "
-  const fs = require('fs');
-  const manifest = {
-    version: '${NEW_VERSION}',
-    build: ${NEW_BUILD},
-    versionCode: ${NEW_BUILD},
-    releaseDate: '${RELEASE_DATE}',
-    releaseNotes: '${NOTES_JSON}',
-    downloadUrl: '${DOWNLOAD_URL}',
-    releaseUrl: '${RELEASE_URL}',
-    minBuildRequired: 1,
-    forceUpdate: false
-  };
-  fs.writeFileSync('version.json', JSON.stringify(manifest, null, 2) + '\n');
-  console.log('  version.json updated');
-"
+notes = """${RELEASE_NOTES_TEXT}""".strip()
+manifest = {
+    "version": "${NEW_VERSION}",
+    "build": ${NEW_BUILD},
+    "versionCode": ${NEW_BUILD},
+    "releaseDate": "${RELEASE_DATE}",
+    "releaseNotes": notes,
+    "downloadUrl": "${DOWNLOAD_URL}",
+    "releaseUrl": "${RELEASE_URL}",
+    "minBuildRequired": 1,
+    "forceUpdate": False
+}
+with open("version.json", "w") as f:
+    json.dump(manifest, f, indent=2)
+    f.write("\n")
+PYEOF
 
-success "version.json updated → points to ${DOWNLOAD_URL}"
+success "version.json updated"
+dim "Download URL: ${DOWNLOAD_URL}"
+echo ""
 
-# ────────────────────────────────────────────────────────────────────
-# 8. GIT COMMIT & TAG
-# ────────────────────────────────────────────────────────────────────
-section "Git Commit & Tag"
+# ─── Step 9: Git commit & tag ────────────────────────────────────────────────
+header "Committing & Tagging"
 
 git add app.json package.json version.json src/services/UpdateService.ts
-git commit -m "release: Bump version to ${NEW_VERSION} (build ${NEW_BUILD})"
-git tag -a "${TAG}" -m "Release ${NEW_VERSION}"
 
-success "Committed and tagged: ${TAG}"
+# Stage the APK if you want it tracked (optional; usually skipped)
+# git add "${DEST_APK}"  # uncomment if you want APK in git (not recommended for large files)
 
-# ────────────────────────────────────────────────────────────────────
-# 9. PUSH TO GITHUB
-# ────────────────────────────────────────────────────────────────────
-section "Pushing to GitHub"
+git commit -m "release: Bump version to ${NEW_VERSION} (build #${NEW_BUILD})
+
+$(printf '%s\n' "${NOTES_LINES[@]}")"
+
+git tag -a "${TAG}" -m "Monolith ${NEW_VERSION}
+
+$(printf '%s\n' "${NOTES_LINES[@]}")"
+
+success "Committed: release: Bump version to ${NEW_VERSION}"
+success "Tagged: ${TAG}"
+echo ""
+
+# ─── Step 10: Push to GitHub ──────────────────────────────────────────────────
+header "Pushing to GitHub"
 
 git push origin master
+success "Pushed master branch"
+
 git push origin "${TAG}"
+success "Pushed tag ${TAG}"
+echo ""
 
-success "Pushed to GitHub (master + ${TAG})"
+# ─── Step 11: Create GitHub Release ──────────────────────────────────────────
+header "Creating GitHub Release"
 
-# ────────────────────────────────────────────────────────────────────
-# 10. CREATE GITHUB RELEASE (requires gh CLI)
-# ────────────────────────────────────────────────────────────────────
-section "Creating GitHub Release"
-
-if command -v gh &> /dev/null; then
-  info "GitHub CLI found — creating release with APK upload"
-
-  NOTES_BODY=$(printf '%s\n' "${NOTES_LINES[@]}")
+if [[ "$GH_AVAILABLE" == true ]]; then
+  info "Uploading APK to GitHub Releases…"
 
   gh release create "${TAG}" \
     "${DEST_APK}" \
     --title "Monolith ${NEW_VERSION}" \
-    --notes "${NOTES_BODY}" \
+    --notes "$(printf '%s\n' "${NOTES_LINES[@]}")" \
     --repo "anandaage123/daily-app"
 
-  success "GitHub release created: ${RELEASE_URL}"
-  success "APK uploaded: ${DOWNLOAD_URL}"
-
+  success "GitHub Release created!"
+  success "APK live at: ${DIM}${DOWNLOAD_URL}${RESET}"
 else
-  warn "GitHub CLI (gh) not found. Release was NOT created automatically."
+  warn "GitHub CLI not available — create the release manually:"
   echo ""
-  echo -e "${BOLD}Manual steps:${RESET}"
-  echo "  1. Go to: https://github.com/anandaage123/daily-app/releases/new"
-  echo "  2. Select tag: ${TAG}"
-  echo "  3. Title: Monolith ${NEW_VERSION}"
-  echo "  4. Upload APK: ${DEST_APK}"
-  echo "  5. Publish release"
+  echo -e "    1. Go to: ${CYAN}https://github.com/anandaage123/daily-app/releases/new${RESET}"
+  echo -e "    2. Tag:    ${BOLD}${TAG}${RESET}"
+  echo -e "    3. Title:  ${BOLD}Monolith ${NEW_VERSION}${RESET}"
+  echo -e "    4. Upload: ${BOLD}${DEST_APK}${RESET}"
+  echo -e "    5. Click Publish Release"
   echo ""
-  echo -e "${YELLOW}Once published, the app will auto-detect update v${NEW_VERSION}.${RESET}"
-  echo ""
-  info "Install 'gh' for fully automated releases: brew install gh && gh auth login"
+  echo -e "    ${DIM}Then run: brew install gh && gh auth login  (to automate next time)${RESET}"
 fi
 
-# ────────────────────────────────────────────────────────────────────
-# 11. OPTIONAL: ADB INSTALL
-# ────────────────────────────────────────────────────────────────────
-section "Installing to Device"
+echo ""
 
-if command -v adb &> /dev/null; then
-  DEVICE=$(adb devices | grep -v "List of devices" | grep "device$" | head -n 1)
+# ─── Step 12: Install to device ──────────────────────────────────────────────
+header "Installing to Device"
+
+if [[ "$ADB_AVAILABLE" == true ]]; then
+  DEVICE=$(adb devices 2>/dev/null | grep -v "List of devices" | grep "device$" | head -n 1)
   if [[ -n "$DEVICE" ]]; then
-    info "Device found — installing ${DEST_APK}…"
+    info "Installing ${DEST_APK} on connected device…"
     adb install -r "$DEST_APK"
-    success "Installed on device"
+    success "Installed successfully"
   else
-    warn "No Android device connected via ADB. Skipping install."
+    warn "No Android device connected via ADB — skipping install"
+    info "To install manually: adb install -r ${DEST_APK}"
   fi
 else
-  warn "adb not in PATH — skipping device install."
+  warn "ADB not available — skipping device install"
 fi
 
-# ────────────────────────────────────────────────────────────────────
-# DONE
-# ────────────────────────────────────────────────────────────────────
 echo ""
-echo -e "${BOLD}${GREEN}┌─────────────────────────────────────────────┐${RESET}"
-echo -e "${BOLD}${GREEN}│   Release ${NEW_VERSION} complete! 🎉              │${RESET}"
-echo -e "${BOLD}${GREEN}├─────────────────────────────────────────────┤${RESET}"
-echo -e "${BOLD}${GREEN}│  Tag    :  ${TAG}                          ${GREEN}│${RESET}"
-echo -e "${BOLD}${GREEN}│  APK    :  ${DEST_APK}          ${GREEN}│${RESET}"
-echo -e "${BOLD}${GREEN}│  Size   :  ${APK_SIZE}                              ${GREEN}│${RESET}"
-echo -e "${BOLD}${GREEN}└─────────────────────────────────────────────┘${RESET}"
+
+# ─── Done ────────────────────────────────────────────────────────────────────
+divider
+echo ""
+echo -e "  ${BOLD}${GREEN}🎉 Release ${NEW_VERSION} is live!${RESET}"
+echo ""
+echo -e "  ${BOLD}Version :${RESET} ${NEW_VERSION} (build #${NEW_BUILD})"
+echo -e "  ${BOLD}APK     :${RESET} ${DEST_APK}  ${DIM}(${APK_SIZE})${RESET}"
+echo -e "  ${BOLD}Tag     :${RESET} ${TAG}"
+echo -e "  ${BOLD}URL     :${RESET} ${DIM}${RELEASE_URL}${RESET}"
+echo ""
+echo -e "  ${DIM}Users on an older version will see the update prompt${RESET}"
+echo -e "  ${DIM}the next time they open the app.${RESET}"
+echo ""
+divider
+echo ""
