@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { StatusBar, View, Text, Animated, StyleSheet, Easing, Dimensions, Platform } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
+import UpdateModal from './src/components/UpdateModal';
+import { checkForUpdates, VersionManifest } from './src/services/UpdateService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -14,6 +16,7 @@ const SPLASH_THEME = {
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [updateManifest, setUpdateManifest] = useState<VersionManifest | null>(null);
 
   // Animation Refs
   const mainFade = useRef(new Animated.Value(0)).current;
@@ -94,7 +97,16 @@ export default function App() {
         toValue: 0,
         duration: 1000,
         useNativeDriver: true,
-      }).start(() => setShowSplash(false));
+      }).start(async () => {
+        setShowSplash(false);
+        // Check for updates silently after splash — avoids blocking launch
+        try {
+          const manifest = await checkForUpdates();
+          if (manifest) setUpdateManifest(manifest);
+        } catch (_) {
+          // Never let update check crash the app
+        }
+      });
     }, 4500);
 
     return () => clearTimeout(timer);
@@ -168,6 +180,12 @@ export default function App() {
     <>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <AppNavigator />
+      {updateManifest && (
+        <UpdateModal
+          manifest={updateManifest}
+          onDismiss={() => setUpdateManifest(null)}
+        />
+      )}
     </>
   );
 }
