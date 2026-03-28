@@ -1,11 +1,11 @@
 {
-  "version": "2.1.7",
-  "build": 5,
-  "versionCode": 5,
+  "version": "2.1.8",
+  "build": 6,
+  "versionCode": 6,
   "releaseDate": "2026-03-28",
   "releaseNotes": "\u2022 Bug fixes and improvements",
-  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v2.1.7/Monolith.apk",
-  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v2.1.7",
+  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v2.1.8/Monolith.apk",
+  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v2.1.8",
   "minBuildRequired": 1,
   "forceUpdate": false
 }
