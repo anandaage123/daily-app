@@ -170,7 +170,7 @@ echo ""
 echo -e "  ${BOLD}Version    :${RESET}  ${CURRENT_VERSION}  →  ${GREEN}${BOLD}${NEW_VERSION}${RESET}"
 echo -e "  ${BOLD}Build #    :${RESET}  ${CURRENT_BUILD}  →  ${GREEN}${BOLD}${NEW_BUILD}${RESET}"
 echo -e "  ${BOLD}Tag        :${RESET}  ${TAG}"
-echo -e "  ${BOLD}APK name   :${RESET}  Monolith-${NEW_VERSION}.apk"
+echo -e "  ${BOLD}APK name   :${RESET}  Monolith.apk"
 echo -e "  ${BOLD}Release URL:${RESET}  ${DIM}https://github.com/anandaage123/daily-app/releases/tag/${TAG}${RESET}"
 echo ""
 divider
@@ -249,7 +249,10 @@ if [[ -z "$APK_SOURCE" ]]; then
   error "APK not found. Build may have failed."
 fi
 
-DEST_APK="Monolith-${NEW_VERSION}.apk"
+# Clean up old APKs first
+rm -f *.apk
+
+DEST_APK="Monolith.apk"
 cp "$APK_SOURCE" "$DEST_APK"
 APK_SIZE=$(du -sh "$DEST_APK" | cut -f1)
 
@@ -259,7 +262,7 @@ echo ""
 # ─── Step 8: Update version.json ─────────────────────────────────────────────
 header "Updating version.json"
 
-DOWNLOAD_URL="https://github.com/anandaage123/daily-app/releases/download/${TAG}/${DEST_APK}"
+DOWNLOAD_URL="https://github.com/anandaage123/daily-app/releases/download/${TAG}/Monolith.apk"
 RELEASE_URL="https://github.com/anandaage123/daily-app/releases/tag/${TAG}"
 
 python3 - <<PYEOF

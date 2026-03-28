@@ -4,6 +4,8 @@ import {
   deleteAsync,
   createDownloadResumable,
   getContentUriAsync,
+  readDirectoryAsync,
+  cacheDirectory,
 } from 'expo-file-system/legacy';
 import { Linking, Platform } from 'react-native';
 import * as IntentLauncher from 'expo-intent-launcher';
@@ -79,8 +81,12 @@ export async function checkForUpdates(): Promise<VersionManifest | null> {
   }
 }
 
-// ─── Download APK ─────────────────────────────────────────────────────────────
-const APK_LOCAL_PATH = (documentDirectory ?? '') + 'MonolithUpdate.apk';
+// ─── Download Config ──────────────────────────────────────────────────────────
+const APK_STORAGE_DIR = cacheDirectory ?? '';
+const APK_FILENAME = 'MonolithUpdate.apk';
+const APK_LOCAL_PATH = APK_STORAGE_DIR.endsWith('/') 
+  ? `${APK_STORAGE_DIR}${APK_FILENAME}`
+  : `${APK_STORAGE_DIR}/${APK_FILENAME}`;
 
 /**
  * Downloads the APK from downloadUrl with real-time progress callbacks.
@@ -92,15 +98,22 @@ export async function downloadUpdate(
   onStatusChange: (status: string) => void
 ): Promise<string | null> {
   try {
-    onStatusChange('Preparing download…');
+    onStatusChange('Preparing storage…');
 
-    // Clean up any previous partial download
+    // Clean up ANY existing .apk files in the cache to free space and prevent conflicts
     try {
-      const existing = await getInfoAsync(APK_LOCAL_PATH);
-      if (existing.exists) {
-        await deleteAsync(APK_LOCAL_PATH, { idempotent: true });
+      const files = await readDirectoryAsync(APK_STORAGE_DIR);
+      for (const file of files) {
+        if (file.toLowerCase().endsWith('.apk')) {
+          const path = APK_STORAGE_DIR.endsWith('/') 
+            ? `${APK_STORAGE_DIR}${file}`
+            : `${APK_STORAGE_DIR}/${file}`;
+          await deleteAsync(path, { idempotent: true });
+        }
       }
-    } catch (_) { /* no-op */ }
+    } catch (e) {
+      console.warn('[UpdateService] Cleanup failed:', e);
+    }
 
     onStatusChange('Downloading…');
 
@@ -117,7 +130,11 @@ export async function downloadUpdate(
     );
 
     const result = await downloadResumable.downloadAsync();
-    if (!result || result.status !== 200) return null;
+    
+    if (!result || result.status !== 200) {
+      console.warn(`[UpdateService] Download failed with status: ${result?.status}`);
+      return null;
+    }
 
     onProgress(1);
     onStatusChange('Ready to install');
