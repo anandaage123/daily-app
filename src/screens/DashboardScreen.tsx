@@ -364,7 +364,7 @@ export default function DashboardScreen() {
 
             <View style={styles.greetingSection}>
               <Text style={styles.dateLabel}>{today}</Text>
-              <Text style={styles.greetingTitle}>Rise & Execute.</Text>
+              <Text style={styles.greetingTitle}>Rise & Execute,Hero.</Text>
               <Text style={styles.greetingSub}>
                 {habits.filter(h => h.completed).length > 0
                   ? `${habits.filter(h => h.completed).length} of ${habits.length} rituals crushed today. Keep the streak alive.`
