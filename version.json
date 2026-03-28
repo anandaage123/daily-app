@@ -1,11 +1,11 @@
 {
-  "version": "2.3.3",
-  "build": 14,
-  "versionCode": 14,
+  "version": "2.3.4",
+  "build": 15,
+  "versionCode": 15,
   "releaseDate": "2026-03-28",
-  "releaseNotes": "\u2022 Added sneaky recovery hint feature (198921)\nStability improvements for PIN sessions\n\ny",
-  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v2.3.3/Monolith.apk",
-  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v2.3.3",
+  "releaseNotes": "\u2022 Bug fixes and improvements",
+  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v2.3.4/Monolith.apk",
+  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v2.3.4",
   "minBuildRequired": 1,
   "forceUpdate": false
 }
