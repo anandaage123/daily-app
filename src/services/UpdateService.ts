@@ -16,8 +16,8 @@ const VERSION_JSON_URL =
   'https://raw.githubusercontent.com/anandaage123/daily-app/master/version.json';
 
 // These values MUST match app.json & version.json — release.sh keeps them in sync
-export const APP_VERSION = '2.3.4';
-export const APP_BUILD = 15;
+export const APP_VERSION = '2.3.5';
+export const APP_BUILD = 16;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface VersionManifest {

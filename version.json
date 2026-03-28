@@ -1,11 +1,11 @@
 {
-  "version": "2.3.4",
-  "build": 15,
-  "versionCode": 15,
+  "version": "2.3.5",
+  "build": 16,
+  "versionCode": 16,
   "releaseDate": "2026-03-28",
-  "releaseNotes": "\u2022 Bug fixes and improvements",
-  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v2.3.4/Monolith.apk",
-  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v2.3.4",
+  "releaseNotes": "\u2022 Full app rebrand to Daily Hub\n\u2022 Removed legacy Muse terminology\n\u2022 Switched to Journal and Entry naming\n\u2022 UI cleanup and accessibility fixes",
+  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v2.3.5/Monolith.apk",
+  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v2.3.5",
   "minBuildRequired": 1,
   "forceUpdate": false
 }
