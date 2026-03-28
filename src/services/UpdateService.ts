@@ -6,6 +6,7 @@ import {
   getContentUriAsync,
 } from 'expo-file-system/legacy';
 import { Linking, Platform } from 'react-native';
+import * as IntentLauncher from 'expo-intent-launcher';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 // Raw GitHub URL for the version manifest — works only if the repo is public
@@ -13,8 +14,8 @@ const VERSION_JSON_URL =
   'https://raw.githubusercontent.com/anandaage123/daily-app/master/version.json';
 
 // These values MUST match app.json & version.json — release.sh keeps them in sync
-export const APP_VERSION = '2.1.2';
-export const APP_BUILD = 2;
+export const APP_VERSION = '2.1.5';
+export const APP_BUILD = 3;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface VersionManifest {
@@ -143,13 +144,16 @@ export async function triggerInstall(
   }
   try {
     const contentUri = await getContentUriAsync(localUri);
-    const canOpen = await Linking.canOpenURL(contentUri);
-    if (canOpen) {
-      await Linking.openURL(contentUri);
-      return;
-    }
+    
+    // Use expo-intent-launcher for a more robust installation intent
+    await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+      data: contentUri,
+      flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+      type: 'application/vnd.android.package-archive',
+    });
+    return;
   } catch (e) {
-    console.warn('[UpdateService] Content URI install failed, falling back to browser:', e);
+    console.warn('[UpdateService] Intent installation failed, falling back to browser:', e);
   }
   await Linking.openURL(releaseUrl);
 }
