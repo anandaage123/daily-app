@@ -45,6 +45,122 @@ interface Note {
 }
 
 export default function NotesScreen() {
+  const { colors, isDark } = useTheme();
+  
+  const styles = StyleSheet.create({
+    mainContainer: { flex: 1, backgroundColor: colors.background },
+    authContainer: { flex: 1, backgroundColor: colors.background },
+    authMain: { flex: 1, paddingHorizontal: 30, justifyContent: 'center' },
+    identitySection: { alignItems: 'center', marginBottom: 40 },
+    enhancedIconContainer: { marginBottom: 20 },
+    iconCircle: { width: 80, height: 80, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
+    authHeading: { ...Typography.header, fontSize: 32, textAlign: 'center', color: colors.text },
+    authSubtext: { ...Typography.body, color: colors.textVariant, textAlign: 'center', marginTop: 8 },
+    pinDisplay: { flexDirection: 'row', gap: 15, justifyContent: 'center', marginVertical: 40, height: 20 },
+    pinDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.primary },
+    pinDotActive: { backgroundColor: colors.primary },
+    keypad: { flexDirection: 'row', flexWrap: 'wrap', gap: 15, justifyContent: 'center' },
+    keypadBtn: { width: 75, height: 75, borderRadius: 38, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', ...Shadows.soft },
+    keypadText: { ...Typography.title, fontSize: 24, color: colors.text },
+    keypadBtnText: { ...Typography.title, fontSize: 24, color: colors.text },
+
+    container: { flex: 1, backgroundColor: colors.background },
+    appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, paddingTop: Platform.OS === 'ios' ? 60 : 40 },
+    logoText: { ...Typography.header, fontSize: 32, color: colors.text },
+    appBarSub: { ...Typography.caption, color: colors.textVariant, fontWeight: '700' },
+    headerIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', ...Shadows.soft },
+
+    summaryBar: { flexDirection: 'row', paddingHorizontal: 24, marginBottom: 20 },
+    summaryItem: { flex: 1 },
+    summaryLabel: { ...Typography.caption, color: colors.textVariant },
+    summaryVal: { ...Typography.title, color: colors.text },
+    summaryDivider: { width: 1, height: 30, backgroundColor: colors.surfaceContainer, marginHorizontal: 15 },
+
+    searchSection: { paddingHorizontal: 24, marginBottom: 20 },
+    searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 15, paddingHorizontal: 15, height: 50, ...Shadows.soft },
+    searchInput: { flex: 1, marginLeft: 10, ...Typography.body, color: colors.text },
+
+    filterBar: { paddingBottom: 10 },
+    filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, backgroundColor: colors.surface, marginRight: 10, borderWidth: 1, borderColor: colors.surfaceContainer },
+    filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    filterChipText: { ...Typography.caption, fontWeight: '700', color: colors.textVariant },
+
+    notesGrid: { paddingHorizontal: 24, paddingBottom: 120 },
+    noteCard: { backgroundColor: colors.surface, borderRadius: 20, padding: 20, marginBottom: 16, ...Shadows.soft },
+    noteTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+    cardIndicatorMood: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
+    noteCardTitle: { ...Typography.title, fontSize: 18, color: colors.text },
+    noteDateText: { ...Typography.caption, color: colors.textVariant },
+    noteCardContent: { ...Typography.body, fontSize: 15, color: colors.textVariant, lineHeight: 22 },
+    noteBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: colors.background },
+    bottomTag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: colors.background },
+    tagBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: colors.background },
+    tagText: { ...Typography.caption, fontSize: 10, color: colors.primary, fontWeight: '700' },
+
+    emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 100 },
+    emptyIconBg: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', marginBottom: 20, ...Shadows.soft },
+    emptyTextTitle: { ...Typography.title, color: colors.text },
+    emptyTextSub: { ...Typography.body, color: colors.textVariant, textAlign: 'center', paddingHorizontal: 40 },
+
+    fabMain: { position: 'absolute', bottom: 30, right: 30, width: 64, height: 64, borderRadius: 32, ...Shadows.soft },
+    fabInner: { width: '100%', height: '100%', borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
+
+    editorScreen: { flex: 1, backgroundColor: colors.background },
+    editorHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: Platform.OS === 'ios' ? 60 : 20 },
+    headerTitleMain: { ...Typography.title, color: colors.text },
+    navText: { ...Typography.body, color: colors.textVariant, fontWeight: '600' },
+
+    editControls: { paddingHorizontal: 20, marginBottom: 20 },
+    selectorGroup: { marginBottom: 20 },
+    labelSmall: { ...Typography.caption, fontWeight: '800', color: colors.textVariant, marginBottom: 10 },
+    moodRow: { flexDirection: 'row', gap: 10 },
+    moodBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', ...Shadows.soft },
+    moodActive: { backgroundColor: colors.primary },
+    catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    catChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.surfaceContainer },
+    catChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    chipText: { ...Typography.caption, fontWeight: '700', color: colors.textVariant },
+    catChipText: { ...Typography.caption, fontWeight: '700', color: colors.textVariant },
+
+    titleInput: { ...Typography.header, fontSize: 28, paddingHorizontal: 20, marginBottom: 10, color: colors.text },
+    contentInput: { ...Typography.body, paddingHorizontal: 20, color: colors.text, fontSize: 17, minHeight: 400, textAlignVertical: 'top' },
+
+    viewContainer: { flex: 1, backgroundColor: colors.background },
+    viewContent: { padding: 20 },
+    viewMeta: { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 20 },
+    viewDate: { ...Typography.caption, color: colors.textVariant },
+    viewTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+    viewTitle: { ...Typography.header, fontSize: 32, color: colors.text, flex: 1 },
+    viewMoodBig: { fontSize: 40 },
+    viewBody: { ...Typography.body, color: colors.text, fontSize: 17, lineHeight: 26 },
+    viewBodyWrapper: { marginTop: 10 },
+
+    actionGroup: { gap: 10, padding: 20 },
+    actionRow: { flexDirection: 'row', alignItems: 'center', padding: 15, backgroundColor: colors.surface, borderRadius: 15, ...Shadows.soft },
+    actionIconBg: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
+    actionTextMain: { ...Typography.body, fontWeight: '700', color: colors.text },
+    actionTextSub: { ...Typography.caption, color: colors.textVariant },
+    deleteAction: { marginTop: 20 },
+
+    modalOverlayAction: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    modalContentAction: { backgroundColor: colors.surface, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20 },
+    actionIndicator: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.background, alignSelf: 'center', marginBottom: 20 },
+    actionHeader: { marginBottom: 20 },
+    closeActionBtn: { padding: 15, borderRadius: 15, backgroundColor: colors.background, alignItems: 'center', marginTop: 10 },
+    closeActionText: { ...Typography.body, fontWeight: '700', color: colors.textVariant },
+
+    modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    confirmContent: { backgroundColor: colors.surface, padding: 30, borderRadius: 30, width: '100%', alignItems: 'center' },
+    confirmIconBg: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.error + '15', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+    confirmTitle: { ...Typography.title, color: colors.text },
+    confirmSub: { ...Typography.body, color: colors.textVariant, textAlign: 'center', marginBottom: 30 },
+    confirmActions: { flexDirection: 'row', gap: 15, width: '100%' },
+    cancelConfirmBtn: { flex: 1, paddingVertical: 15, borderRadius: 12, alignItems: 'center', backgroundColor: colors.background },
+    cancelConfirmText: { ...Typography.body, color: colors.textVariant, fontWeight: '700' },
+    deleteConfirmBtn: { flex: 1, paddingVertical: 15, borderRadius: 12, alignItems: 'center', backgroundColor: colors.error },
+    deleteConfirmText: { ...Typography.body, color: '#FFF', fontWeight: '800' },
+  });
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasRegisteredPin, setHasRegisteredPin] = useState<boolean | null>(null);
   const [pin, setPin] = useState('');
@@ -687,220 +803,3 @@ export default function NotesScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: '#FAFAFF' },
-  authContainer: { flex: 1, backgroundColor: '#FDFCFF', justifyContent: 'center' },
-  authMain: { padding: 32, alignItems: 'center' },
-  identitySection: { alignItems: 'center', marginBottom: 48 },
-  enhancedIconContainer: { 
-    width: 90, 
-    height: 90, 
-    borderRadius: 36, 
-    backgroundColor: '#FFF', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    marginBottom: 20, 
-    ...Shadows.soft 
-  },
-  iconCircle: { width: 70, height: 70, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  authHeading: { ...Typography.header, fontSize: 32, textAlign: 'center', letterSpacing: -1 },
-  authSubtext: { ...Typography.body, color: colors.textVariant, textAlign: 'center', fontSize: 16, marginTop: 4, opacity: 0.7 },
-  pinDisplay: { flexDirection: 'row', gap: 16, marginBottom: 56 },
-  pinDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#E0E0E8' },
-  pinDotActive: { backgroundColor: colors.primary, ...Shadows.soft },
-  keypad: { width: '100%', maxWidth: 300, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 16 },
-  keypadBtn: { 
-    width: 78, 
-    height: 78, 
-    borderRadius: 24, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    backgroundColor: '#FFF', 
-    ...Shadows.soft,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.02)'
-  },
-  keypadBtnText: { ...Typography.title, fontSize: 28, fontWeight: '700' },
-
-  appBar: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'flex-end', 
-    paddingHorizontal: 24, 
-    paddingTop: Platform.OS === 'ios' ? 70 : 50, 
-    paddingBottom: 20 
-  },
-  logoText: { ...Typography.header, fontSize: 36, letterSpacing: -1.5 },
-  appBarSub: { ...Typography.caption, color: colors.textVariant, fontWeight: '700', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  headerIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', ...Shadows.soft },
-
-  summaryBar: { flexDirection: 'row', paddingHorizontal: 24, marginBottom: 24, alignItems: 'center' },
-  summaryItem: { paddingRight: 24 },
-  summaryVal: { ...Typography.header, fontSize: 24, color: colors.text },
-  summaryLabel: { ...Typography.caption, fontSize: 13, fontWeight: '600' },
-  summaryDivider: { width: 1, height: 30, backgroundColor: '#E0E0EA', marginRight: 24 },
-
-  searchSection: { paddingHorizontal: 24, marginBottom: 16 },
-  searchBarContainer: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#FFF', 
-    paddingHorizontal: 16, 
-    height: 52, 
-    borderRadius: 20,
-    ...Shadows.soft,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.02)'
-  },
-  searchInput: { flex: 1, ...Typography.body, fontSize: 16, fontWeight: '500', paddingLeft: 10 },
-
-  filterBar: { marginBottom: 12, flexGrow: 0 },
-  filterChip: { 
-    paddingHorizontal: 20, 
-    paddingVertical: 10, 
-    borderRadius: 18, 
-    backgroundColor: '#FFF', 
-    ...Shadows.soft,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.01)'
-  },
-  filterChipActive: { backgroundColor: colors.primary, ...Shadows.soft },
-  filterChipText: { ...Typography.caption, fontWeight: '800', color: colors.textVariant, fontSize: 13 },
-
-  notesGrid: { paddingHorizontal: 24, gap: 20 },
-  noteCard: { 
-    backgroundColor: '#FFF', 
-    padding: 24, 
-    borderRadius: 28, 
-    ...Shadows.soft,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.02)'
-  },
-  noteTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  cardIndicatorMood: { width: 50, height: 50, borderRadius: 18, backgroundColor: '#F0F0FF', justifyContent: 'center', alignItems: 'center' },
-  noteCardTitle: { ...Typography.title, fontSize: 20, fontWeight: '800', marginBottom: 2 },
-  noteDateText: { ...Typography.caption, color: colors.textVariant, fontWeight: '600' },
-  noteCardContent: { ...Typography.body, fontSize: 16, color: colors.textVariant, lineHeight: 24, opacity: 0.8 },
-  noteBottom: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F7F7F9'
-  },
-  bottomTag: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: '#FAFAFF' },
-  tagText: { ...Typography.caption, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, color: colors.primary },
-
-  fabMain: { position: 'absolute', bottom: 32, right: 24, width: 68, height: 68, borderRadius: 28, ...Shadows.soft, elevation: 8 },
-  fabInner: { width: '100%', height: '100%', borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
-
-  headerRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 24, 
-    paddingTop: Platform.OS === 'ios' ? 64 : 44, 
-    paddingBottom: 20,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F9'
-  },
-  headerTitleMain: { ...Typography.title, fontSize: 18, fontWeight: '800' },
-  navText: { color: colors.textVariant, fontSize: 17, fontWeight: '600' },
-
-  editControls: { paddingHorizontal: 24, marginTop: 24, marginBottom: 28 },
-  selectorGroup: { marginBottom: 24 },
-  labelSmall: { ...Typography.caption, fontWeight: '800', color: colors.textVariant, marginBottom: 12, letterSpacing: 1 },
-  moodBadge: { 
-    width: 56, 
-    height: 56, 
-    borderRadius: 20, 
-    backgroundColor: '#F8F8FF', 
-    justifyContent: 'center', 
-    alignItems: 'center'
-  },
-  moodActive: { backgroundColor: '#FFF', borderWidth: 2, borderColor: colors.primary, ...Shadows.soft },
-  catChip: { 
-    paddingHorizontal: 22, 
-    paddingVertical: 12, 
-    borderRadius: 20, 
-    backgroundColor: '#FFF', 
-    ...Shadows.soft,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.02)'
-  },
-  catChipActive: { backgroundColor: colors.primary, ...Shadows.soft },
-  catChipText: { ...Typography.body, fontWeight: '700', color: colors.textVariant },
-
-  titleInput: { ...Typography.header, fontSize: 34, paddingHorizontal: 24, marginBottom: 16, letterSpacing: -1 },
-  contentInput: { 
-    flex: 1, 
-    ...Typography.body, 
-    paddingHorizontal: 24, 
-    fontSize: 18, 
-    lineHeight: 28, 
-    textAlignVertical: 'top',
-    color: '#2C2A51'
-  },
-
-  viewContent: { paddingHorizontal: 24, paddingTop: 10, paddingBottom: 120 },
-  viewMeta: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
-  tagBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  viewDate: { ...Typography.body, color: colors.textVariant, fontSize: 16, fontWeight: '500' },
-  viewTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 },
-  viewTitle: { ...Typography.header, fontSize: 38, flex: 1, letterSpacing: -1.5, lineHeight: 46 },
-  viewMoodBig: { fontSize: 44, marginLeft: 16 },
-  viewBodyWrapper: { 
-    backgroundColor: '#FFF', 
-    padding: 28, 
-    borderRadius: 32, 
-    ...Shadows.soft,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.01)'
-  },
-  viewBody: { ...Typography.body, fontSize: 18, lineHeight: 30, color: '#3A385F' },
-
-  modalOverlayAction: { flex: 1, backgroundColor: 'rgba(15,14,23,0.5)', justifyContent: 'flex-end' },
-  modalContentAction: { 
-    backgroundColor: '#FFF', 
-    borderTopLeftRadius: 40, 
-    borderTopRightRadius: 40, 
-    padding: 32, 
-    paddingBottom: Platform.OS === 'ios' ? 44 : 32 
-  },
-  actionIndicator: { width: 44, height: 6, backgroundColor: '#E0E0EA', borderRadius: 3, alignSelf: 'center', marginBottom: 24 },
-  actionHeader: { ...Typography.header, fontSize: 26, marginBottom: 28 },
-  actionGroup: { gap: 12, marginBottom: 24 },
-  actionRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingVertical: 18, 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#F0F0FF',
-    gap: 16
-  },
-  actionIconBg: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  actionTextMain: { ...Typography.body, fontSize: 18, fontWeight: '700' },
-  actionTextSub: { ...Typography.caption, fontSize: 13, color: colors.textVariant, marginTop: 2 },
-  closeActionBtn: { backgroundColor: '#F4F4F9', paddingVertical: 16, borderRadius: 20, alignItems: 'center' },
-  closeActionText: { ...Typography.body, fontWeight: '700', color: colors.textVariant },
-
-  modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(15,14,23,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  confirmContent: { backgroundColor: '#FFF', borderRadius: 36, padding: 32, width: '100%', maxWidth: 320, alignItems: 'center', ...Shadows.soft },
-  confirmIconBg: { width: 70, height: 70, borderRadius: 24, backgroundColor: '#FFF2F5', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  confirmTitle: { ...Typography.header, fontSize: 22, textAlign: 'center' },
-  confirmSub: { ...Typography.body, fontSize: 15, textAlign: 'center', color: colors.textVariant, marginTop: 8, marginBottom: 32 },
-  confirmActions: { flexDirection: 'row', gap: 12, width: '100%' },
-  cancelConfirmBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: 18, backgroundColor: '#F4F4F9' },
-  cancelConfirmText: { ...Typography.body, color: colors.textVariant, fontWeight: '700' },
-  deleteConfirmBtn: { flex: 1, paddingVertical: 16, alignItems: 'center', borderRadius: 18, backgroundColor: colors.error },
-  deleteConfirmText: { ...Typography.body, color: '#FFF', fontWeight: '800' },
-
-  emptyContainer: { alignItems: 'center', marginTop: 100, paddingHorizontal: 40 },
-  emptyIconBg: { width: 100, height: 100, borderRadius: 50, backgroundColor: MM_Colors.primary + '10', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
-  emptyTextTitle: { ...Typography.header, fontSize: 24, color: MM_Colors.text },
-  emptyTextSub: { ...Typography.body, color: MM_Colors.textVariant, textAlign: 'center', marginTop: 8, lineHeight: 24 },
-});

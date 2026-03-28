@@ -10,7 +10,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-import { MM_Colors, Typography, Shadows, Spacing } from '../theme/Theme';
+import { Typography, Shadows, Spacing } from '../theme/Theme';
+import { useTheme } from '../context/ThemeContext';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -104,170 +105,9 @@ const generatePassword = (length = 16) => {
   return result;
 };
 
-const categoryIcon = (cat?: string): any => {
-  switch (cat) {
-    case 'Social': return 'people-outline';
-    case 'Work': return 'briefcase-outline';
-    case 'Finance': return 'card-outline';
-    case 'Shopping': return 'bag-handle-outline';
-    default: return 'key-outline';
-  }
-};
-
-const categoryColor = (cat?: string) => {
-  switch (cat) {
-    case 'Social': return '#4D96FF';
-    case 'Work': return '#6BCB77';
-    case 'Finance': return '#FF8C42';
-    case 'Shopping': return '#9C27B0';
-    default: return MM_Colors.primary;
-  }
-};
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-const TagPill = ({
-  tag, active, onPress, onRemove
-}: {
-  tag: string; active?: boolean; onPress?: () => void; onRemove?: () => void;
-}) => (
-  <Pressable onPress={onPress} style={[styles.tagPill, active && styles.tagPillActive]}>
-    <Text style={[styles.tagText, active && styles.tagTextActive]}>{tag}</Text>
-    {active && onRemove && (
-      <Pressable onPress={onRemove} hitSlop={8} style={{ marginLeft: 4 }}>
-        <Ionicons name="close" size={12} color={active ? '#FFF' : MM_Colors.textVariant} />
-      </Pressable>
-    )}
-  </Pressable>
-);
-
-const PasswordStrengthBar = ({ password }: { password: string }) => {
-  const score = (() => {
-    let s = 0;
-    if (password.length >= 8) s++;
-    if (password.length >= 12) s++;
-    if (/[A-Z]/.test(password)) s++;
-    if (/[0-9]/.test(password)) s++;
-    if (/[^A-Za-z0-9]/.test(password)) s++;
-    return s;
-  })();
-  const colors = ['#FF4B4B', '#FF8C42', '#FFC300', '#6BCB77', '#4D96FF'];
-  const labels = ['Very Weak', 'Weak', 'Fair', 'Strong', 'Very Strong'];
-  if (!password) return null;
-  return (
-    <View style={styles.strengthContainer}>
-      <View style={styles.strengthBars}>
-        {[1, 2, 3, 4, 5].map(i => (
-          <View key={i} style={[styles.strengthBar, { backgroundColor: i <= score ? colors[score - 1] : '#E0E0E0' }]} />
-        ))}
-      </View>
-      <Text style={[styles.strengthLabel, { color: colors[score - 1] ?? '#E0E0E0' }]}>{labels[score - 1] ?? ''}</Text>
-    </View>
-  );
-};
-
-const EmptyState = ({
-  icon, title, subtitle, onAction
-}: {
-  icon: any; title: string; subtitle: string; onAction?: () => void;
-}) => (
-  <View style={styles.emptyState}>
-    <Ionicons name={icon} size={56} color={MM_Colors.primaryLight ?? '#C5C0FF'} />
-    <Text style={styles.emptyTitle}>{title}</Text>
-    <Text style={styles.emptySubtitle}>{subtitle}</Text>
-    {onAction && (
-      <Pressable
-        onPress={onAction}
-        style={({ pressed }) => [styles.emptyActionBtn, { opacity: pressed ? 0.75 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] }]}
-      >
-        <Ionicons name="add" size={16} color="#FFF" />
-        <Text style={styles.emptyActionBtnText}>Get Started</Text>
-      </Pressable>
-    )}
-  </View>
-);
-
-// ─── SwipeablePasswordRow ─────────────────────────────────────────────────────
-
-const SwipeablePasswordRow = ({
-  item, copiedId, copiedUsernameId, showPasswords,
-  onPress, onCopyPassword, onCopyUsername, onToggleShow, onDelete,
-}: {
-  item: PasswordItem;
-  copiedId: string | null;
-  copiedUsernameId: string | null;
-  showPasswords: Set<string>;
-  onPress: () => void;
-  onCopyPassword: () => void;
-  onCopyUsername: () => void;
-  onToggleShow: () => void;
-  onDelete: () => void;
-}) => {
-  const swipeAnim = useRef(new Animated.Value(0)).current;
-  const [open, setOpen] = useState(false);
-
-  const panResponder = PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10 && Math.abs(g.dy) < 20,
-    onPanResponderMove: (_, g) => {
-      if (g.dx < 0) swipeAnim.setValue(Math.max(g.dx, -80));
-    },
-    onPanResponderRelease: (_, g) => {
-      if (g.dx < -50) {
-        Animated.timing(swipeAnim, { toValue: -80, duration: 150, useNativeDriver: true }).start();
-        setOpen(true);
-      } else {
-        Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: true }).start();
-        setOpen(false);
-      }
-    },
-  });
-
-  return (
-    <View style={{ marginHorizontal: 8, marginBottom: 8 }}>
-      <View style={styles.swipeDeleteBg}>
-        <Pressable style={styles.swipeDeleteBtn} onPress={onDelete}>
-          <Ionicons name="trash-outline" size={22} color="#FFF" />
-          <Text style={styles.swipeDeleteText}>Delete</Text>
-        </Pressable>
-      </View>
-      <Animated.View style={{ transform: [{ translateX: swipeAnim }] }} {...panResponder.panHandlers}>
-        <Pressable
-          onPress={() => {
-            if (open) {
-              Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: true }).start();
-              setOpen(false);
-            } else {
-              onPress();
-            }
-          }}
-          style={styles.passItem}
-        >
-          <View style={[styles.passIconContainer, { backgroundColor: categoryColor(item.category) + '22' }]}>
-            <Ionicons name={categoryIcon(item.category)} size={20} color={categoryColor(item.category)} />
-          </View>
-          <View style={styles.passInfo}>
-            <Text style={styles.passSite}>{item.site}</Text>
-            <Text style={styles.passUser}>{item.username}</Text>
-          </View>
-          <View style={styles.passRight}>
-            <Pressable onPress={onCopyUsername} style={[styles.quickCopyBtn, copiedUsernameId === item.id && styles.quickCopyBtnActive]} hitSlop={6}>
-              <Ionicons name={copiedUsernameId === item.id ? 'checkmark' : 'person-outline'} size={15} color={copiedUsernameId === item.id ? '#34A853' : MM_Colors.textVariant} />
-            </Pressable>
-            <Pressable onPress={onCopyPassword} style={[styles.quickCopyBtn, copiedId === item.id && styles.quickCopyBtnActive]} hitSlop={6}>
-              <Ionicons name={copiedId === item.id ? 'checkmark' : 'copy-outline'} size={15} color={copiedId === item.id ? '#34A853' : MM_Colors.textVariant} />
-            </Pressable>
-            <Pressable onPress={onToggleShow} style={styles.passEyeBtn}>
-              <Ionicons name={showPasswords.has(item.id) ? 'eye-off-outline' : 'eye-outline'} size={18} color={MM_Colors.textVariant} />
-            </Pressable>
-            {showPasswords.has(item.id) && <Text style={styles.passRevealed}>{item.pass}</Text>}
-          </View>
-        </Pressable>
-      </Animated.View>
-    </View>
-  );
-};
-
 export default function VaultScreen() {
+  const { colors, isDark } = useTheme();
+  
   // ── Auth state ──
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vaultMode, setVaultMode] = useState<'primary' | 'decoy' | null>(null);
@@ -351,24 +191,7 @@ export default function VaultScreen() {
   const [editingPassword, setEditingPassword] = useState<PasswordItem | null>(null);
   const [showNewPass, setShowNewPass] = useState(false);
 
-  // ── Add album form ──
-  const [newAlbumName, setNewAlbumName] = useState('');
-
-  // ── Tag form ──
-  const [newTag, setNewTag] = useState('');
-  const [taggingItemId, setTaggingItemId] = useState<string | null>(null);
-
-  // ── Settings ──
-  const [autoLock, setAutoLock] = useState<number>(0);
-  const [screenshotProtection, setScreenshotProtection] = useState(true);
-
-  // ── Onboarding ──
-  const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'done'>('done');
-
-  // ── Toast ──
-  const [toastMsg, setToastMsg] = useState('');
-  const toastAnim = useRef(new Animated.Value(0)).current;
-
+  
   const navigation = useNavigation<any>();
   const appState = useRef(AppState.currentState);
   const skipLock = useRef(false);
@@ -389,6 +212,396 @@ export default function VaultScreen() {
       try { videoPlayer?.pause(); } catch (e) {}
     }
   }, [viewerVisible]);
+
+  
+  const categoryIcon = (cat?: string): any => {
+    switch (cat) {
+      case 'Social': return 'people-outline';
+      case 'Work': return 'briefcase-outline';
+      case 'Finance': return 'card-outline';
+      case 'Shopping': return 'bag-handle-outline';
+      default: return 'key-outline';
+    }
+  };
+
+  const categoryColor = (cat?: string) => {
+    switch (cat) {
+      case 'Social': return '#4D96FF';
+      case 'Work': return '#6BCB77';
+      case 'Finance': return '#FF8C42';
+      case 'Shopping': return '#9C27B0';
+      default: return colors.primary;
+    }
+  };
+
+  const TagPill = ({
+    tag, active, onPress, onRemove
+  }: {
+    tag: string; active?: boolean; onPress?: () => void; onRemove?: () => void;
+  }) => (
+    <Pressable onPress={onPress} style={[styles.tagPill, active && styles.tagPillActive]}>
+      <Text style={[styles.tagText, active && styles.tagTextActive]}>{tag}</Text>
+      {active && onRemove && (
+        <Pressable onPress={onRemove} hitSlop={8} style={{ marginLeft: 4 }}>
+          <Ionicons name="close" size={12} color={active ? '#FFF' : colors.textVariant} />
+        </Pressable>
+      )}
+    </Pressable>
+  );
+
+  const PasswordStrengthBar = ({ password }: { password: string }) => {
+    const score = (() => {
+      let s = 0;
+      if (password.length >= 8) s++;
+      if (password.length >= 12) s++;
+      if (/[A-Z]/.test(password)) s++;
+      if (/[0-9]/.test(password)) s++;
+      if (/[^A-Za-z0-9]/.test(password)) s++;
+      return s;
+    })();
+    const cBar = ['#FF4B4B', '#FF8C42', '#FFC300', '#6BCB77', '#4D96FF'];
+    const labels = ['Very Weak', 'Weak', 'Fair', 'Strong', 'Very Strong'];
+    if (!password) return null;
+    return (
+      <View style={styles.strengthContainer}>
+        <View style={styles.strengthBars}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <View key={i} style={[styles.strengthBar, { backgroundColor: i <= score ? cBar[score - 1] : colors.surfaceContainer }]} />
+          ))}
+        </View>
+        <Text style={[styles.strengthLabel, { color: cBar[score - 1] ?? colors.textVariant }]}>{labels[score - 1] ?? ''}</Text>
+      </View>
+    );
+  };
+
+  const EmptyState = ({
+    icon, title, subtitle, onAction
+  }: {
+    icon: any; title: string; subtitle: string; onAction?: () => void;
+  }) => (
+    <View style={styles.emptyState}>
+      <Ionicons name={icon} size={56} color={colors.primaryLight ?? '#C5C0FF'} />
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptySubtitle}>{subtitle}</Text>
+      {onAction && (
+        <TouchableOpacity
+          onPress={onAction}
+          style={styles.emptyActionBtn}
+        >
+          <Ionicons name="add" size={16} color="#FFF" />
+          <Text style={styles.emptyActionBtnText}>Get Started</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const SwipeablePasswordRow = ({
+    item, copiedId, copiedUsernameId, showPasswords,
+    onPress, onCopyPassword, onCopyUsername, onToggleShow, onDelete,
+  }: {
+    item: PasswordItem;
+    copiedId: string | null;
+    copiedUsernameId: string | null;
+    showPasswords: Set<string>;
+    onPress: () => void;
+    onCopyPassword: () => void;
+    onCopyUsername: () => void;
+    onToggleShow: () => void;
+    onDelete: () => void;
+  }) => {
+    const swipeAnim = useRef(new Animated.Value(0)).current;
+    const [open, setOpen] = useState(false);
+
+    const panResponder = PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10 && Math.abs(g.dy) < 20,
+      onPanResponderMove: (_, g) => {
+        if (g.dx < 0) swipeAnim.setValue(Math.max(g.dx, -80));
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -50) {
+          Animated.timing(swipeAnim, { toValue: -80, duration: 150, useNativeDriver: true }).start();
+          setOpen(true);
+        } else {
+          Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: true }).start();
+          setOpen(false);
+        }
+      },
+    });
+
+    return (
+      <View style={{ marginHorizontal: 8, marginBottom: 8 }}>
+        <View style={styles.swipeDeleteBg}>
+          <TouchableOpacity style={styles.swipeDeleteBtn} onPress={onDelete}>
+            <Ionicons name="trash-outline" size={22} color="#FFF" />
+            <Text style={styles.swipeDeleteText}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+        <Animated.View style={{ transform: [{ translateX: swipeAnim }] }} {...panResponder.panHandlers}>
+          <TouchableOpacity
+            onPress={() => {
+              if (open) {
+                Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: true }).start();
+                setOpen(false);
+              } else {
+                onPress();
+              }
+            }}
+            style={styles.passItem}
+          >
+            <View style={[styles.passIconContainer, { backgroundColor: categoryColor(item.category) + '22' }]}>
+              <Ionicons name={categoryIcon(item.category)} size={20} color={categoryColor(item.category)} />
+            </View>
+            <View style={styles.passInfo}>
+              <Text style={styles.passSite}>{item.site}</Text>
+              <Text style={styles.passUser}>{item.username}</Text>
+            </View>
+            <View style={styles.passRight}>
+              <TouchableOpacity onPress={onCopyUsername} style={[styles.quickCopyBtn, copiedUsernameId === item.id && styles.quickCopyBtnActive]} hitSlop={6}>
+                <Ionicons name={copiedUsernameId === item.id ? 'checkmark' : 'person-outline'} size={15} color={copiedUsernameId === item.id ? '#34A853' : colors.textVariant} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onCopyPassword} style={[styles.quickCopyBtn, copiedId === item.id && styles.quickCopyBtnActive]} hitSlop={6}>
+                <Ionicons name={copiedId === item.id ? 'checkmark' : 'copy-outline'} size={15} color={copiedId === item.id ? '#34A853' : colors.textVariant} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onToggleShow} style={styles.passEyeBtn}>
+                <Ionicons name={showPasswords.has(item.id) ? 'eye-off-outline' : 'eye-outline'} size={18} color={colors.textVariant} />
+              </TouchableOpacity>
+              {showPasswords.has(item.id) && <Text style={styles.passRevealed} numberOfLines={1}>{item.pass}</Text>}
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    );
+  };
+
+  const styles = StyleSheet.create({
+    authContainer: { flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
+    logoContainer: { alignItems: 'center', marginBottom: 60 },
+    logoTitle: { fontSize: 32, fontWeight: '800', color: colors.text, marginTop: 16, letterSpacing: -0.5 },
+    logoSub: { fontSize: 13, color: colors.textVariant, letterSpacing: 1.5, fontWeight: '700' },
+    pinDisplay: { flexDirection: 'row', gap: 15, marginBottom: 50 },
+    pinDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.outlineVariant },
+    pinDotActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    wrongPinText: { color: colors.error, fontSize: 14, fontWeight: '600', marginBottom: 20 },
+    numpadGrid: { flexDirection: 'row', flexWrap: 'wrap', width: 280, gap: 20, justifyContent: 'center' },
+    numBtn: { width: 70, height: 70, borderRadius: 35, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.soft },
+    numBtnText: { fontSize: 28, fontWeight: '600', color: colors.text },
+    setupBanner: { marginBottom: 40, alignItems: 'center', paddingHorizontal: 40 },
+    setupTitle: { fontSize: 24, fontWeight: '800', color: colors.text, textAlign: 'center' },
+    setupSub: { fontSize: 14, color: colors.textVariant, textAlign: 'center', marginTop: 10, lineHeight: 20 },
+
+    container: { flex: 1, backgroundColor: colors.background },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 15 },
+    headerTitleBox: { flex: 1, marginHorizontal: 12 },
+    headerTitle: { fontSize: 24, fontWeight: '800', color: colors.text },
+    headerSub: { fontSize: 12, color: colors.textVariant, marginTop: 2 },
+    tabBar: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 12, gap: 12 },
+    tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 14, backgroundColor: colors.surface, ...Shadows.soft },
+    tabActive: { backgroundColor: colors.primary },
+    tabText: { fontSize: 14, fontWeight: '700', color: colors.textVariant },
+    tabTextActive: { color: '#FFF' },
+
+    controlsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
+    searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surfaceContainer, borderRadius: 12, paddingHorizontal: 12, height: 40 },
+    searchInput: { flex: 1, fontSize: 14, color: colors.text },
+    iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceContainer, borderRadius: 12 },
+    statsBar: { paddingHorizontal: 16, paddingBottom: 4 },
+    statsBarText: { fontSize: 12, color: colors.textVariant, fontWeight: '500' },
+    filterRowWrapper: { flexDirection: 'row', alignItems: 'center', paddingRight: 8 },
+    filterRow: { paddingBottom: 8 },
+    filterRowContent: { paddingHorizontal: 15, gap: 8, alignItems: 'center' },
+    tagManagerBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceContainer, borderRadius: 10 },
+    tagPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: 'transparent' },
+    tagPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    tagText: { fontSize: 13, fontWeight: '600', color: colors.textVariant, lineHeight: 16 },
+    tagTextActive: { color: '#FFF' },
+    bulkBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.outlineVariant, gap: 8 },
+    bulkCount: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.text },
+    bulkBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, backgroundColor: colors.surfaceContainer },
+    bulkBtnText: { fontSize: 13, fontWeight: '600', color: colors.text },
+    listContent: { padding: 8 },
+    mediaItem: { borderRadius: 10, overflow: 'hidden', backgroundColor: colors.surfaceContainer, margin: 2 },
+    mediaItemSelected: { opacity: 0.85 },
+    videoBadge: { position: 'absolute', top: 5, right: 5, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 5, paddingVertical: 3, borderRadius: 8 },
+    videoDuration: { fontSize: 10, color: '#FFF', fontWeight: '700' },
+    favBadge: { position: 'absolute', top: 5, left: 5, backgroundColor: 'rgba(255,255,255,0.9)', padding: 4, borderRadius: 8 },
+    selectedOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(99,102,241,0.45)', alignItems: 'center', justifyContent: 'center' },
+    listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 16, marginHorizontal: 8, marginBottom: 8, padding: 12, ...Shadows.soft, borderWidth: 1, borderColor: 'transparent' },
+    listThumb: { width: 56, height: 56, borderRadius: 10, backgroundColor: colors.surfaceContainer, marginRight: 12 },
+    listItemInfo: { flex: 1 },
+    listItemName: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 2 },
+    listItemMeta: { fontSize: 12, color: colors.textVariant },
+    listItemTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+    listItemRight: { alignItems: 'center', gap: 6, paddingLeft: 8 },
+    microTag: { backgroundColor: colors.surfaceContainer, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
+    microTagText: { fontSize: 11, color: colors.primary, fontWeight: '600' },
+    albumCard: { flex: 1, margin: 8, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.surface, ...Shadows.soft },
+    albumCover: { width: '100%', height: 130 },
+    albumCoverEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceContainer },
+    albumInfo: { padding: 12 },
+    albumName: { fontSize: 14, fontWeight: '700', color: colors.text },
+    albumCount: { fontSize: 12, color: colors.textVariant, marginTop: 2 },
+    albumBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3 },
+    albumBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+    passItem: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: colors.surface, borderRadius: 18, marginHorizontal: 8, marginBottom: 12, ...Shadows.soft },
+    passIconContainer: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+    passInfo: { flex: 1 },
+    passSite: { fontSize: 16, fontWeight: '700', color: colors.text },
+    passUser: { fontSize: 13, color: colors.textVariant, marginTop: 2 },
+    passRight: { alignItems: 'flex-end', gap: 4 },
+    passEyeBtn: { padding: 4 },
+    passRevealed: { fontSize: 11, color: colors.textVariant, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', maxWidth: 100 },
+    quickCopyBtn: { padding: 6, borderRadius: 8, backgroundColor: colors.background },
+    quickCopyBtnActive: { backgroundColor: colors.tertiary + '20' },
+    strengthContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+    strengthBars: { flexDirection: 'row', gap: 4, flex: 1 },
+    strengthBar: { flex: 1, height: 4, borderRadius: 2 },
+    strengthLabel: { fontSize: 12, fontWeight: '700', minWidth: 70, textAlign: 'right' },
+    fab: { position: 'absolute', bottom: 32, right: 24, width: 58, height: 58, borderRadius: 29, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 16, elevation: 10 },
+    emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 80, paddingHorizontal: 40 },
+    emptyTitle: { fontSize: 20, fontWeight: '800', color: colors.text, marginTop: 20 },
+    emptySubtitle: { textAlign: 'center', color: colors.textVariant, marginTop: 8, lineHeight: 20, fontSize: 14 },
+    emptyActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 20, backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 14 },
+    emptyActionBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    modalSheet: { backgroundColor: colors.surface, borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 24, paddingBottom: Platform.OS === 'ios' ? 44 : 32, maxHeight: height * 0.88 },
+    detailSheet: { backgroundColor: colors.surface, borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 24, paddingBottom: Platform.OS === 'ios' ? 44 : 32 },
+    modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.surfaceContainerHigh, alignSelf: 'center', marginBottom: 20 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    modalTitle: { fontSize: 20, fontWeight: '800', color: colors.text, letterSpacing: -0.3 },
+    compactModal: { backgroundColor: colors.surface, margin: 24, borderRadius: 24, padding: 24, ...Shadows.soft },
+    settingSection: { fontSize: 11, fontWeight: '700', color: colors.textVariant, letterSpacing: 1.2, marginTop: 16, marginBottom: 4, paddingHorizontal: 4 },
+    settingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 14 },
+    settingIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    settingLabel: { flex: 1, fontSize: 16, fontWeight: '600', color: colors.text },
+    settingSubLabel: { fontSize: 12, color: colors.textVariant, marginTop: 2 },
+    autoLockChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: colors.surfaceContainer },
+    autoLockChipActive: { backgroundColor: colors.primary },
+    autoLockChipText: { fontSize: 13, fontWeight: '600', color: colors.textVariant },
+    autoLockChipTextActive: { color: '#FFF' },
+    vaultStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 20, backgroundColor: colors.background, borderRadius: 16, padding: 16, justifyContent: 'space-between' },
+    statLabel: { fontSize: 12, color: colors.textVariant, fontWeight: '600' },
+    statValue: { fontSize: 12, fontWeight: '800', color: colors.primary },
+    passModal: { backgroundColor: colors.surface, borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 24, paddingBottom: Platform.OS === 'ios' ? 44 : 32, maxHeight: height * 0.9 },
+    passModalTitle: { fontSize: 20, fontWeight: '800', color: colors.text, marginBottom: 20 },
+    inputLabel: { fontSize: 12, fontWeight: '700', color: colors.textVariant, marginBottom: 6, letterSpacing: 0.5 },
+    input: { height: 50, backgroundColor: colors.background, borderRadius: 14, paddingHorizontal: 16, marginBottom: 14, color: colors.text, fontSize: 15, borderWidth: 1, borderColor: colors.outlineVariant },
+    passInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    passInputActions: { position: 'absolute', right: 14, flexDirection: 'row', alignItems: 'center', top: 0, height: 50 },
+    modalBtns: { flexDirection: 'row', gap: 12, marginTop: 8 },
+    cancelBtn: { flex: 1, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceContainer },
+    saveBtn: { flex: 1, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+    cancelBtnText: { fontWeight: '700', color: colors.textVariant, fontSize: 15 },
+    saveBtnText: { fontWeight: '700', color: '#FFF', fontSize: 15 },
+    detailRow: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant },
+    detailLabel: { fontSize: 11, fontWeight: '700', color: colors.textVariant, letterSpacing: 0.8, marginBottom: 4 },
+    detailValue: { fontSize: 15, color: colors.text, fontWeight: '500' },
+    detailActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
+    detailBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 50, borderRadius: 14, backgroundColor: colors.surfaceContainer },
+    detailBtnText: { fontSize: 15, fontWeight: '700', color: colors.text },
+    viewerContainer: { flex: 1, backgroundColor: '#000' },
+    viewerCounter: { position: 'absolute', top: Platform.OS === 'ios' ? 56 : 36, alignSelf: 'center', zIndex: 10, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
+    viewerCounterText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+    viewerClose: { position: 'absolute', top: Platform.OS === 'ios' ? 56 : 36, left: 20, zIndex: 10 },
+    favBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 56 : 36, right: 20, zIndex: 10 },
+    viewerCloseBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+    fullMedia: { width: '100%', height: '60%' },
+    viewerBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
+    viewerMeta: { paddingHorizontal: 24, paddingTop: 16 },
+    viewerMetaName: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+    viewerMetaDate: { fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
+    viewerTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+    viewerTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
+    viewerTagText: { fontSize: 12, color: '#FFF', fontWeight: '600' },
+    addTagBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
+    addTagBtnText: { fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
+    viewerActions: { flexDirection: 'row', justifyContent: 'center', gap: 32, paddingHorizontal: 24, marginTop: 16 },
+    viewerActionBtn: { alignItems: 'center', gap: 8 },
+    viewerActionIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+    viewerBtnText: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600' },
+    viewerChevronLeft: { position: 'absolute', left: 12, top: '40%', zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+    viewerChevronRight: { position: 'absolute', right: 12, top: '40%', zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+    tagManagerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant },
+    tagManagerName: { fontSize: 15, fontWeight: '700', color: colors.text },
+    tagManagerCount: { fontSize: 12, color: colors.textVariant, marginTop: 2 },
+    tagManagerAction: { padding: 10 },
+    recoveryHintWrapper: { position: 'absolute', top: Platform.OS === 'ios' ? 60 : 40, right: 25, zIndex: 9999 },
+    recoveryHintText: { color: 'rgba(255, 255, 255, 0.3)', fontSize: 20, fontWeight: '800', letterSpacing: 5 },
+    albumSubHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant },
+    albumBackBtn: { flexDirection: 'row', alignItems: 'center', width: 70 },
+    albumBackText: { fontSize: 15, fontWeight: '600', color: colors.primary, marginLeft: 2 },
+    albumSubTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '800', color: colors.text },
+    swipeDeleteBg: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, backgroundColor: colors.error, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+    swipeDeleteBtn: { alignItems: 'center', justifyContent: 'center', width: 80, height: '100%' as any },
+    swipeDeleteText: { color: '#FFF', fontSize: 11, fontWeight: '700', marginTop: 2 },
+    csvImportBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 8, marginBottom: 8, marginTop: 2, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary + '40', backgroundColor: colors.primary + '0A' },
+    csvImportBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+    toast: { position: 'absolute', bottom: 100, alignSelf: 'center', zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.8)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25 },
+    toastText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+    onboardingContainer: { flex: 1, backgroundColor: colors.background },
+    authBg: { position: 'absolute', width, height, overflow: 'hidden' },
+    authBgCircle1: { position: 'absolute', top: -100, right: -100, width: 300, height: 300, borderRadius: 150, backgroundColor: colors.primary + '10' },
+    authBgCircle2: { position: 'absolute', bottom: -50, left: -50, width: 250, height: 250, borderRadius: 125, backgroundColor: colors.secondary + '08' },
+    onboardingContent: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+    iconCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+    onboardingTitle: { fontSize: 28, fontWeight: '900', color: colors.text, textAlign: 'center', marginBottom: 12 },
+    onboardingSubtitle: { fontSize: 16, color: colors.textVariant, textAlign: 'center', marginBottom: 40, lineHeight: 24 },
+    onboardingFeatureList: { width: '100%', gap: 20, marginBottom: 48 },
+    onboardingFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+    onboardingFeatureIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.surfaceContainer, alignItems: 'center', justifyContent: 'center' },
+    onboardingFeatureText: { flex: 1, fontSize: 14, color: colors.text, fontWeight: '600' },
+    onboardingCTA: { width: '100%', height: 56, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...Shadows.soft },
+    onboardingCTAText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
+    onboardingSkip: { marginTop: 24, padding: 8 },
+    authMain: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', padding: 24 },
+    identityContainer: { alignItems: 'center', marginBottom: 40 },
+    authHeading: { fontSize: 26, fontWeight: '900', color: colors.text, marginTop: 16 },
+    authSubtitle: { fontSize: 14, color: colors.textVariant, marginTop: 4, fontWeight: '500' },
+    numpadBtn: { width: 75, height: 75, borderRadius: 40, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.soft },
+    numpadText: { fontSize: 28, fontWeight: '600', color: colors.text },
+    numpadBtnGhost: { backgroundColor: 'transparent', shadowOpacity: 0, elevation: 0 },
+    headerBtn: { width: 42, height: 42, borderRadius: 12, backgroundColor: colors.surfaceContainer, alignItems: 'center', justifyContent: 'center' },
+    headerCenter: { flex: 1, alignItems: 'center' },
+    primaryBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.primary + '15', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 4 },
+    primaryDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
+    primaryBadgeText: { fontSize: 10, fontWeight: '800', color: colors.primary, letterSpacing: 0.5 },
+    title: { fontSize: 18, fontWeight: '800', color: colors.text },
+    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    tabContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
+    activeTab: { backgroundColor: colors.primary },
+    activeTabText: { color: '#FFF' },
+    tabBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.1)' },
+    tabBadgeActive: { backgroundColor: 'rgba(255,255,255,0.2)' },
+    tabBadgeText: { fontSize: 10, fontWeight: '800', color: colors.textVariant },
+    tabBadgeTextActive: { color: '#FFF' },
+  });
+
+  // Lock on exit
+  useEffect(() => {
+    const unsubBlur = navigation.addListener('blur', () => {
+      setIsAuthenticated(false);
+      setPin('');
+    });
+    return unsubBlur;
+  }, [navigation]);
+
+  // ── Add album form ──
+  const [newAlbumName, setNewAlbumName] = useState('');
+
+  // ── Tag form ──
+  const [newTag, setNewTag] = useState('');
+  const [taggingItemId, setTaggingItemId] = useState<string | null>(null);
+
+  // ── Settings ──
+  const [autoLock, setAutoLock] = useState<number>(0);
+  const [screenshotProtection, setScreenshotProtection] = useState(true);
+
+  // ── Onboarding ──
+  const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'done'>('done');
+
+  // ── Toast ──
+  const [toastMsg, setToastMsg] = useState('');
+  const toastAnim = useRef(new Animated.Value(0)).current;
+
 
   // ── Computed ──
 
@@ -1181,7 +1394,7 @@ export default function VaultScreen() {
             ].map(f => (
               <View key={f.text} style={styles.onboardingFeatureRow}>
                 <View style={styles.onboardingFeatureIcon}>
-                  <Ionicons name={f.icon as any} size={18} color={MM_Colors.primary} />
+                  <Ionicons name={f.icon as any} size={18} color={colors.primary} />
                 </View>
                 <Text style={styles.onboardingFeatureText}>{f.text}</Text>
               </View>
@@ -1290,7 +1503,7 @@ export default function VaultScreen() {
           onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Dashboard')}
           style={({ pressed }) => [styles.headerBtn, { opacity: pressed ? 0.7 : 1 }]}
         >
-          <Ionicons name="chevron-back" size={26} color={MM_Colors.primary} />
+          <Ionicons name="chevron-back" size={26} color={colors.primary} />
         </Pressable>
 
         <View style={styles.headerCenter}>
@@ -1307,15 +1520,15 @@ export default function VaultScreen() {
           {isSelectMode ? (
             <>
               <Pressable onPress={selectAll} style={[styles.headerBtn, { marginRight: 4 }]}>
-                <Ionicons name={selectedItems.size === filteredItems.length ? 'checkmark-circle' : 'checkmark-circle-outline'} size={22} color={MM_Colors.primary} />
+                <Ionicons name={selectedItems.size === filteredItems.length ? 'checkmark-circle' : 'checkmark-circle-outline'} size={22} color={colors.primary} />
               </Pressable>
               <Pressable onPress={() => { setIsSelectMode(false); setSelectedItems(new Set()); }} style={styles.headerBtn}>
-                <Ionicons name="close" size={22} color={MM_Colors.text} />
+                <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </>
           ) : (
             <Pressable onPress={() => setIsSettingsVisible(true)} style={({ pressed }) => [styles.headerBtn, { opacity: pressed ? 0.7 : 1 }]}>
-              <Ionicons name="settings-outline" size={22} color={MM_Colors.primary} />
+              <Ionicons name="settings-outline" size={22} color={colors.primary} />
             </Pressable>
           )}
         </View>
@@ -1336,7 +1549,7 @@ export default function VaultScreen() {
             <Ionicons
               name={tab === 'media' ? 'images-outline' : tab === 'albums' ? 'folder-outline' : 'key-outline'}
               size={16}
-              color={activeTab === tab ? '#FFF' : MM_Colors.textVariant}
+              color={activeTab === tab ? '#FFF' : colors.textVariant}
             />
             <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -1356,29 +1569,29 @@ export default function VaultScreen() {
           {/* Search + controls */}
           <View style={styles.controlsRow}>
             <View style={styles.searchBox}>
-              <Ionicons name="search-outline" size={16} color={MM_Colors.textVariant} />
+              <Ionicons name="search-outline" size={16} color={colors.textVariant} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search files…"
-                placeholderTextColor={MM_Colors.textVariant}
+                placeholderTextColor={colors.textVariant}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
               {searchQuery ? (
                 <Pressable onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={16} color={MM_Colors.textVariant} />
+                  <Ionicons name="close-circle" size={16} color={colors.textVariant} />
                 </Pressable>
               ) : null}
             </View>
             <Pressable style={styles.iconBtn} onPress={() => setIsSortVisible(true)}>
-              <Ionicons name="funnel-outline" size={20} color={MM_Colors.primary} />
+              <Ionicons name="funnel-outline" size={20} color={colors.primary} />
             </Pressable>
             <Pressable style={styles.iconBtn} onPress={() => setViewMode(v => v === 'grid' ? 'list' : 'grid')}>
-              <Ionicons name={viewMode === 'grid' ? 'list-outline' : 'grid-outline'} size={20} color={MM_Colors.primary} />
+              <Ionicons name={viewMode === 'grid' ? 'list-outline' : 'grid-outline'} size={20} color={colors.primary} />
             </Pressable>
             {viewMode === 'grid' && (
               <Pressable style={styles.iconBtn} onPress={() => setGridSize(s => s === 'small' ? 'medium' : s === 'medium' ? 'large' : 'small')}>
-                <MaterialCommunityIcons name="view-grid-plus-outline" size={20} color={MM_Colors.primary} />
+                <MaterialCommunityIcons name="view-grid-plus-outline" size={20} color={colors.primary} />
               </Pressable>
             )}
           </View>
@@ -1405,7 +1618,7 @@ export default function VaultScreen() {
             </ScrollView>
             {/* Tag manager button */}
             <Pressable style={styles.tagManagerBtn} onPress={() => setIsTagManagerVisible(true)}>
-              <Ionicons name="settings-outline" size={16} color={MM_Colors.primary} />
+              <Ionicons name="settings-outline" size={16} color={colors.primary} />
             </Pressable>
           </View>
 
@@ -1414,12 +1627,12 @@ export default function VaultScreen() {
             <View style={styles.bulkBar}>
               <Text style={styles.bulkCount}>{selectedItems.size} selected</Text>
               <Pressable style={styles.bulkBtn} onPress={handleBulkUnhide}>
-                <Ionicons name="download-outline" size={18} color={MM_Colors.primary} />
-                <Text style={[styles.bulkBtnText, { color: MM_Colors.primary }]}>Restore</Text>
+                <Ionicons name="download-outline" size={18} color={colors.primary} />
+                <Text style={[styles.bulkBtnText, { color: colors.primary }]}>Restore</Text>
               </Pressable>
               <Pressable style={styles.bulkBtn} onPress={() => setIsMoveAlbumVisible(true)}>
-                <Ionicons name="folder-outline" size={18} color={MM_Colors.primary} />
-                <Text style={[styles.bulkBtnText, { color: MM_Colors.primary }]}>Move</Text>
+                <Ionicons name="folder-outline" size={18} color={colors.primary} />
+                <Text style={[styles.bulkBtnText, { color: colors.primary }]}>Move</Text>
               </Pressable>
               <Pressable style={styles.bulkBtn} onPress={handleBulkDelete}>
                 <Ionicons name="trash-outline" size={18} color="#FF4B4B" />
@@ -1477,7 +1690,7 @@ export default function VaultScreen() {
                   <Pressable
                     onPress={() => isSelectMode ? toggleSelectItem(item.id) : openViewer(item)}
                     onLongPress={() => { setIsSelectMode(true); toggleSelectItem(item.id); }}
-                    style={[styles.listItem, selected && { borderColor: MM_Colors.primary, borderWidth: 1.5 }]}
+                    style={[styles.listItem, selected && { borderColor: colors.primary, borderWidth: 1.5 }]}
                   >
                     <Image source={{ uri: item.uri }} style={styles.listThumb} />
                     <View style={styles.listItemInfo}>
@@ -1490,9 +1703,9 @@ export default function VaultScreen() {
                       )}
                     </View>
                     <View style={styles.listItemRight}>
-                      {item.type === 'video' && <Ionicons name="play-circle-outline" size={20} color={MM_Colors.textVariant} />}
+                      {item.type === 'video' && <Ionicons name="play-circle-outline" size={20} color={colors.textVariant} />}
                       {item.favorite && <Ionicons name="heart" size={16} color="#FF4B4B" />}
-                      {selected && <Ionicons name="checkmark-circle" size={22} color={MM_Colors.primary} style={{ marginTop: 4 }} />}
+                      {selected && <Ionicons name="checkmark-circle" size={22} color={colors.primary} style={{ marginTop: 4 }} />}
                     </View>
                   </Pressable>
                 );
@@ -1527,7 +1740,7 @@ export default function VaultScreen() {
                 <Image source={{ uri: album.coverUri }} style={styles.albumCover} />
               ) : (
                 <View style={[styles.albumCover, styles.albumCoverEmpty]}>
-                  <Ionicons name="folder-open-outline" size={40} color={MM_Colors.primaryLight ?? '#C5C0FF'} />
+                  <Ionicons name="folder-open-outline" size={40} color={colors.primaryLight ?? '#C5C0FF'} />
                 </View>
               )}
               <View style={styles.albumInfo}>
@@ -1555,7 +1768,7 @@ export default function VaultScreen() {
             {/* Album sub-header */}
             <View style={styles.albumSubHeader}>
               <Pressable onPress={() => setOpenAlbumId(null)} style={styles.albumBackBtn}>
-                <Ionicons name="chevron-back" size={22} color={MM_Colors.primary} />
+                <Ionicons name="chevron-back" size={22} color={colors.primary} />
                 <Text style={styles.albumBackText}>Albums</Text>
               </Pressable>
               <Text style={styles.albumSubTitle} numberOfLines={1}>{currentAlbum?.name ?? ''}</Text>
@@ -1606,15 +1819,15 @@ export default function VaultScreen() {
         <View style={{ flex: 1 }}>
           <View style={styles.controlsRow}>
             <View style={[styles.searchBox, { flex: 1 }]}>
-              <Ionicons name="search-outline" size={16} color={MM_Colors.textVariant} />
+              <Ionicons name="search-outline" size={16} color={colors.textVariant} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search passwords…"
-                placeholderTextColor={MM_Colors.textVariant}
+                placeholderTextColor={colors.textVariant}
                 value={passSearch}
                 onChangeText={setPassSearch}
               />
-              {passSearch ? <Pressable onPress={() => setPassSearch('')}><Ionicons name="close-circle" size={16} color={MM_Colors.textVariant} /></Pressable> : null}
+              {passSearch ? <Pressable onPress={() => setPassSearch('')}><Ionicons name="close-circle" size={16} color={colors.textVariant} /></Pressable> : null}
             </View>
           </View>
 
@@ -1652,7 +1865,7 @@ export default function VaultScreen() {
                 style={styles.csvImportBtn}
                 onPress={() => setIsCsvImportVisible(true)}
               >
-                <Ionicons name="cloud-upload-outline" size={16} color={MM_Colors.primary} />
+                <Ionicons name="cloud-upload-outline" size={16} color={colors.primary} />
                 <Text style={styles.csvImportBtnText}>Import from Browser CSV</Text>
               </Pressable>
             }
@@ -1719,7 +1932,7 @@ export default function VaultScreen() {
             renderItem={({ item }) => (
               <View style={{ width, flex: 1, justifyContent: 'center' }}>
                 {item.type === 'video' && item.id === currentViewerItem?.id ? (
-                  <VideoView style={styles.fullMedia} player={videoPlayer} allowsFullscreen allowsPictureInPicture />
+                  <VideoView style={styles.fullMedia} player={videoPlayer} nativeControls />
                 ) : (
                   <Image source={{ uri: item.uri }} style={styles.fullMedia} resizeMode="contain" />
                 )}
@@ -1762,7 +1975,7 @@ export default function VaultScreen() {
                     <View key={t} style={styles.viewerTag}>
                       <Text style={styles.viewerTagText}>#{t}</Text>
                       <Pressable onPress={() => removeTagFromItem(currentViewerItem.id, t)} hitSlop={6}>
-                        <Ionicons name="close" size={12} color={MM_Colors.primary} />
+                        <Ionicons name="close" size={12} color={colors.primary} />
                       </Pressable>
                     </View>
                   ))}
@@ -1770,7 +1983,7 @@ export default function VaultScreen() {
                     style={styles.addTagBtn}
                     onPress={() => { setTaggingItemId(currentViewerItem.id); setIsTagModalVisible(true); }}
                   >
-                    <Ionicons name="add" size={14} color={MM_Colors.primary} />
+                    <Ionicons name="add" size={14} color={colors.primary} />
                     <Text style={styles.addTagBtnText}>Tag</Text>
                   </Pressable>
                 </View>
@@ -1799,7 +2012,7 @@ export default function VaultScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{viewingPassword?.site}</Text>
               <Pressable onPress={() => setViewingPassword(null)}>
-                <Ionicons name="close" size={22} color={MM_Colors.text} />
+                <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
             <View style={styles.detailRow}>
@@ -1813,7 +2026,7 @@ export default function VaultScreen() {
                   <Ionicons
                     name={copiedUsernameId === viewingPassword?.id ? 'checkmark' : 'person-outline'}
                     size={15}
-                    color={copiedUsernameId === viewingPassword?.id ? '#34A853' : MM_Colors.textVariant}
+                    color={copiedUsernameId === viewingPassword?.id ? '#34A853' : colors.textVariant}
                   />
                 </Pressable>
               </View>
@@ -1826,7 +2039,7 @@ export default function VaultScreen() {
                   onPress={() => viewingPassword && copyPassword(viewingPassword)}
                   style={[styles.quickCopyBtn, copiedId === viewingPassword?.id && styles.quickCopyBtnActive]}
                 >
-                  <Ionicons name={copiedId === viewingPassword?.id ? 'checkmark' : 'copy-outline'} size={16} color={copiedId === viewingPassword?.id ? '#34A853' : MM_Colors.textVariant} />
+                  <Ionicons name={copiedId === viewingPassword?.id ? 'checkmark' : 'copy-outline'} size={16} color={copiedId === viewingPassword?.id ? '#34A853' : colors.textVariant} />
                 </Pressable>
               </View>
             </View>
@@ -1834,7 +2047,7 @@ export default function VaultScreen() {
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>URL</Text>
                 <Pressable onPress={() => viewingPassword.url && Linking.openURL(viewingPassword.url.startsWith('http') ? viewingPassword.url : `https://${viewingPassword.url}`)}>
-                  <Text style={[styles.detailValue, { color: MM_Colors.primary, textDecorationLine: 'underline' }]} numberOfLines={1}>{viewingPassword.url}</Text>
+                  <Text style={[styles.detailValue, { color: colors.primary, textDecorationLine: 'underline' }]} numberOfLines={1}>{viewingPassword.url}</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -1862,8 +2075,8 @@ export default function VaultScreen() {
             )}
             <View style={styles.detailActions}>
               <Pressable style={styles.detailBtn} onPress={() => viewingPassword && startEditPassword(viewingPassword)}>
-                <Ionicons name="pencil-outline" size={18} color={MM_Colors.primary} />
-                <Text style={[styles.detailBtnText, { color: MM_Colors.primary }]}>Edit</Text>
+                <Ionicons name="pencil-outline" size={18} color={colors.primary} />
+                <Text style={[styles.detailBtnText, { color: colors.primary }]}>Edit</Text>
               </Pressable>
               <Pressable style={styles.detailBtn} onPress={() => { viewingPassword && deletePassword(viewingPassword.id); }}>
                 <Ionicons name="trash-outline" size={18} color="#FF4B4B" />
@@ -1897,10 +2110,10 @@ export default function VaultScreen() {
                 bounces={false}
               >
                 <Text style={styles.inputLabel}>Website / App *</Text>
-                <TextInput placeholder="e.g. Gmail" style={styles.input} value={newSite} onChangeText={setNewSite} placeholderTextColor={MM_Colors.textVariant} />
+                <TextInput placeholder="e.g. Gmail" style={styles.input} value={newSite} onChangeText={setNewSite} placeholderTextColor={colors.textVariant} />
 
                 <Text style={styles.inputLabel}>Username / Email</Text>
-                <TextInput placeholder="your@email.com" style={styles.input} value={newUser} onChangeText={setNewUser} autoCapitalize="none" keyboardType="email-address" placeholderTextColor={MM_Colors.textVariant} />
+                <TextInput placeholder="your@email.com" style={styles.input} value={newUser} onChangeText={setNewUser} autoCapitalize="none" keyboardType="email-address" placeholderTextColor={colors.textVariant} />
 
                 <Text style={styles.inputLabel}>Password</Text>
                 <View style={styles.passInputRow}>
@@ -1910,24 +2123,24 @@ export default function VaultScreen() {
                     value={newPass}
                     onChangeText={setNewPass}
                     secureTextEntry={!showNewPass}
-                    placeholderTextColor={MM_Colors.textVariant}
+                    placeholderTextColor={colors.textVariant}
                   />
                   <View style={styles.passInputActions}>
                     <Pressable onPress={() => setShowNewPass(s => !s)}>
-                      <Ionicons name={showNewPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={MM_Colors.textVariant} />
+                      <Ionicons name={showNewPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textVariant} />
                     </Pressable>
                     <Pressable onPress={() => setNewPass(generatePassword())} style={{ marginLeft: 10 }}>
-                      <Ionicons name="dice-outline" size={20} color={MM_Colors.primary} />
+                      <Ionicons name="dice-outline" size={20} color={colors.primary} />
                     </Pressable>
                   </View>
                 </View>
                 <PasswordStrengthBar password={newPass} />
 
                 <Text style={styles.inputLabel}>URL (optional)</Text>
-                <TextInput placeholder="https://..." style={styles.input} value={newUrl} onChangeText={setNewUrl} autoCapitalize="none" keyboardType="url" placeholderTextColor={MM_Colors.textVariant} />
+                <TextInput placeholder="https://..." style={styles.input} value={newUrl} onChangeText={setNewUrl} autoCapitalize="none" keyboardType="url" placeholderTextColor={colors.textVariant} />
 
                 <Text style={styles.inputLabel}>Notes (optional)</Text>
-                <TextInput placeholder="Any notes…" style={[styles.input, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]} value={newNotes} onChangeText={setNewNotes} multiline placeholderTextColor={MM_Colors.textVariant} />
+                <TextInput placeholder="Any notes…" style={[styles.input, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]} value={newNotes} onChangeText={setNewNotes} multiline placeholderTextColor={colors.textVariant} />
 
                 <Text style={styles.inputLabel}>Category</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }} contentContainerStyle={{ gap: 8 }}>
@@ -1958,7 +2171,7 @@ export default function VaultScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{vaultMode === 'decoy' ? 'Settings' : 'Vault Settings'}</Text>
               <Pressable onPress={() => setIsSettingsVisible(false)}>
-                <Ionicons name="close" size={22} color={MM_Colors.text} />
+                <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
 
@@ -1970,7 +2183,7 @@ export default function VaultScreen() {
                   <Ionicons name="lock-open-outline" size={18} color="#4285F4" />
                 </View>
                 <Text style={styles.settingLabel}>Change PIN</Text>
-                <Ionicons name="chevron-forward" size={16} color={MM_Colors.textVariant} />
+                <Ionicons name="chevron-forward" size={16} color={colors.textVariant} />
               </Pressable>
 
               {/* Decoy section — only shown in primary mode */}
@@ -1984,7 +2197,7 @@ export default function VaultScreen() {
                         <Ionicons name="eye-off-outline" size={18} color="#FF8C42" />
                       </View>
                       <Text style={styles.settingLabel}>Setup Decoy Mode</Text>
-                      <Ionicons name="chevron-forward" size={16} color={MM_Colors.textVariant} />
+                      <Ionicons name="chevron-forward" size={16} color={colors.textVariant} />
                     </Pressable>
                   ) : (
                     <>
@@ -2003,7 +2216,7 @@ export default function VaultScreen() {
                           <Ionicons name="refresh-outline" size={18} color="#FF8C42" />
                         </View>
                         <Text style={styles.settingLabel}>Change Decoy PIN</Text>
-                        <Ionicons name="chevron-forward" size={16} color={MM_Colors.textVariant} />
+                        <Ionicons name="chevron-forward" size={16} color={colors.textVariant} />
                       </Pressable>
                       <Pressable style={styles.settingRow} onPress={disableDecoyMode}>
                         <View style={[styles.settingIcon, { backgroundColor: '#FFEBEE' }]}>
@@ -2042,7 +2255,7 @@ export default function VaultScreen() {
                 <Switch value={screenshotProtection} onValueChange={async (v) => {
                   setScreenshotProtection(v);
                   await AsyncStorage.setItem('@vault_screenshot_protection', String(v));
-                }} trackColor={{ true: MM_Colors.primary }} />
+                }} trackColor={{ true: colors.primary }} />
               </View>
 
               <Text style={styles.settingSection}>DATA</Text>
@@ -2102,7 +2315,7 @@ export default function VaultScreen() {
               style={styles.input}
               value={newAlbumName}
               onChangeText={setNewAlbumName}
-              placeholderTextColor={MM_Colors.textVariant}
+              placeholderTextColor={colors.textVariant}
               autoFocus
             />
             <View style={styles.modalBtns}>
@@ -2127,7 +2340,7 @@ export default function VaultScreen() {
               style={styles.input}
               value={renameAlbumText}
               onChangeText={setRenameAlbumText}
-              placeholderTextColor={MM_Colors.textVariant}
+              placeholderTextColor={colors.textVariant}
               autoFocus
             />
             <View style={styles.modalBtns}>
@@ -2150,7 +2363,7 @@ export default function VaultScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Choose Cover</Text>
               <Pressable onPress={() => { setIsAlbumCoverPickerVisible(false); setCoverPickingAlbumId(null); }}>
-                <Ionicons name="close" size={22} color={MM_Colors.text} />
+                <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
             <FlatList
@@ -2162,7 +2375,7 @@ export default function VaultScreen() {
                   <Image source={{ uri: item.uri }} style={StyleSheet.absoluteFillObject} />
                 </Pressable>
               )}
-              ListEmptyComponent={<Text style={{ textAlign: 'center', padding: 20, color: MM_Colors.textVariant }}>No items in this album</Text>}
+              ListEmptyComponent={<Text style={{ textAlign: 'center', padding: 20, color: colors.textVariant }}>No items in this album</Text>}
             />
           </View>
         </View>
@@ -2178,7 +2391,7 @@ export default function VaultScreen() {
               style={styles.input}
               value={newTag}
               onChangeText={setNewTag}
-              placeholderTextColor={MM_Colors.textVariant}
+              placeholderTextColor={colors.textVariant}
               autoFocus
               autoCapitalize="none"
             />
@@ -2207,11 +2420,11 @@ export default function VaultScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Manage Tags</Text>
               <Pressable onPress={() => setIsTagManagerVisible(false)}>
-                <Ionicons name="close" size={22} color={MM_Colors.text} />
+                <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
             {allTags.length === 0 ? (
-              <Text style={{ textAlign: 'center', padding: 20, color: MM_Colors.textVariant }}>No tags yet</Text>
+              <Text style={{ textAlign: 'center', padding: 20, color: colors.textVariant }}>No tags yet</Text>
             ) : (
               <FlatList
                 data={allTags}
@@ -2232,7 +2445,7 @@ export default function VaultScreen() {
                         }}
                         style={styles.tagManagerAction}
                       >
-                        <Ionicons name="pencil-outline" size={18} color={MM_Colors.primary} />
+                        <Ionicons name="pencil-outline" size={18} color={colors.primary} />
                       </Pressable>
                       <Pressable onPress={() => deleteTagGlobally(tag)} style={styles.tagManagerAction}>
                         <Ionicons name="trash-outline" size={18} color="#FF4B4B" />
@@ -2254,7 +2467,7 @@ export default function VaultScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Move to Album</Text>
               <Pressable onPress={() => setIsMoveAlbumVisible(false)}>
-                <Ionicons name="close" size={22} color={MM_Colors.text} />
+                <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
             <FlatList
@@ -2263,13 +2476,13 @@ export default function VaultScreen() {
               renderItem={({ item: album }) => (
                 <Pressable style={styles.settingRow} onPress={() => moveItemsToAlbum(album.id)}>
                   <View style={[styles.settingIcon, { backgroundColor: '#F0EFFF' }]}>
-                    <Ionicons name="folder-outline" size={18} color={MM_Colors.primary} />
+                    <Ionicons name="folder-outline" size={18} color={colors.primary} />
                   </View>
                   <Text style={styles.settingLabel}>{album.name}</Text>
-                  <Text style={{ color: MM_Colors.textVariant, fontSize: 13 }}>{hiddenItems.filter(i => i.albumId === album.id).length} items</Text>
+                  <Text style={{ color: colors.textVariant, fontSize: 13 }}>{hiddenItems.filter(i => i.albumId === album.id).length} items</Text>
                 </Pressable>
               )}
-              ListEmptyComponent={<Text style={{ textAlign: 'center', padding: 20, color: MM_Colors.textVariant }}>No albums. Create one first.</Text>}
+              ListEmptyComponent={<Text style={{ textAlign: 'center', padding: 20, color: colors.textVariant }}>No albums. Create one first.</Text>}
             />
           </View>
         </View>
@@ -2286,10 +2499,10 @@ export default function VaultScreen() {
                 style={[styles.settingRow, sortBy === opt && { backgroundColor: '#F0EFFF', borderRadius: 12 }]}
                 onPress={() => { setSortBy(opt); setIsSortVisible(false); }}
               >
-                <Text style={[styles.settingLabel, sortBy === opt && { color: MM_Colors.primary }]}>
+                <Text style={[styles.settingLabel, sortBy === opt && { color: colors.primary }]}>
                   {opt.charAt(0).toUpperCase() + opt.slice(1)}
                 </Text>
-                {sortBy === opt && <Ionicons name="checkmark" size={18} color={MM_Colors.primary} />}
+                {sortBy === opt && <Ionicons name="checkmark" size={18} color={colors.primary} />}
               </Pressable>
             ))}
           </View>
@@ -2303,14 +2516,14 @@ export default function VaultScreen() {
             <Pressable onPress={() => {}} style={styles.passModal}>
               <View style={styles.modalHandle} />
               <Text style={styles.passModalTitle}>Import from Browser CSV</Text>
-              <Text style={{ color: MM_Colors.textVariant, fontSize: 13, marginBottom: 14, lineHeight: 19 }}>
+              <Text style={{ color: colors.textVariant, fontSize: 13, marginBottom: 14, lineHeight: 19 }}>
                 Export passwords from Chrome (Settings → Passwords → Export) or Firefox, then paste the CSV contents below.{'\n'}
-                Expected format: <Text style={{ fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', color: MM_Colors.text }}>name, url, username, password</Text>
+                Expected format: <Text style={{ fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', color: colors.text }}>name, url, username, password</Text>
               </Text>
               <TextInput
                 style={[styles.input, { height: 160, textAlignVertical: 'top', paddingTop: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 12 }]}
                 placeholder="Paste CSV here…"
-                placeholderTextColor={MM_Colors.textVariant}
+                placeholderTextColor={colors.textVariant}
                 value={csvImportText}
                 onChangeText={setCsvImportText}
                 multiline
@@ -2333,274 +2546,3 @@ export default function VaultScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  // ── Container ──
-  container: { flex: 1, backgroundColor: '#FAFAFA' },
-
-  // ── Toast ──
-  toast: {
-    position: 'absolute', bottom: 100, alignSelf: 'center', zIndex: 9999,
-    backgroundColor: 'rgba(30,30,40,0.88)', paddingHorizontal: 18, paddingVertical: 10,
-    borderRadius: 24,
-  },
-  toastText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
-
-  // ── Auth ──
-  authContainer: { flex: 1, backgroundColor: '#1A1040' },
-  authBg: { ...StyleSheet.absoluteFillObject },
-  authBgCircle1: { position: 'absolute', top: -80, right: -80, width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(99,102,241,0.25)' },
-  authBgCircle2: { position: 'absolute', bottom: 40, left: -60, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(99,102,241,0.15)' },
-  authMain: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
-  identityContainer: { alignItems: 'center', marginBottom: 40 },
-  iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)' },
-  authHeading: { fontSize: 26, fontWeight: '800', color: '#FFF', marginBottom: 8, letterSpacing: -0.5 },
-  authSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
-  pinDisplay: { flexDirection: 'row', gap: 14, marginBottom: 16 },
-  pinDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)', backgroundColor: 'transparent' },
-  pinDotActive: { backgroundColor: '#FFF', borderColor: '#FFF' },
-  wrongPinText: { color: '#FF7070', fontSize: 13, fontWeight: '600', marginBottom: 16, marginTop: -8 },
-  numpadGrid: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 8 },
-  numpadBtn: { width: (width - 128) / 3, height: (width - 128) / 3, maxWidth: 88, maxHeight: 88, borderRadius: 44, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  numpadBtnGhost: { backgroundColor: 'transparent', borderColor: 'transparent' },
-  numpadText: { fontSize: 26, fontWeight: '600', color: '#FFF' },
-
-  // ── Onboarding ──
-  onboardingContainer: { flex: 1, backgroundColor: '#1A1040' },
-  onboardingContent: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36, paddingTop: 60 },
-  onboardingTitle: { fontSize: 30, fontWeight: '800', color: '#FFF', marginTop: 20, marginBottom: 12, letterSpacing: -0.5 },
-  onboardingSubtitle: { fontSize: 15, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
-  onboardingFeatureList: { width: '100%', gap: 14, marginBottom: 40 },
-  onboardingFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  onboardingFeatureIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  onboardingFeatureText: { fontSize: 15, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
-  onboardingCTA: { flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%', height: 56, borderRadius: 18, backgroundColor: MM_Colors.primary, justifyContent: 'center' },
-  onboardingCTAText: { fontSize: 16, fontWeight: '800', color: '#FFF' },
-  onboardingSkip: { fontSize: 14, color: 'rgba(255,255,255,0.45)', fontWeight: '500' },
-
-  // ── Header ──
-  header: { flexDirection: 'row', alignItems: 'center', paddingTop: Platform.OS === 'ios' ? 52 : 28, paddingBottom: 8, paddingHorizontal: 12, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
-  headerBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20 },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  primaryBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E8F5E9', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginBottom: 2 },
-  primaryDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#34A853' },
-  primaryBadgeText: { fontSize: 11, fontWeight: '700', color: '#34A853', letterSpacing: 0.3 },
-  title: { fontSize: 18, fontWeight: '800', color: MM_Colors.text, letterSpacing: -0.3 },
-  headerRight: { flexDirection: 'row', alignItems: 'center' },
-
-  // ── Tabs ──
-  tabContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8, backgroundColor: '#FFF' },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 12, gap: 5, backgroundColor: '#F5F5F8' },
-  activeTab: { backgroundColor: MM_Colors.primary },
-  tabText: { fontSize: 13, fontWeight: '700', color: MM_Colors.textVariant },
-  activeTabText: { color: '#FFF' },
-  tabBadge: { backgroundColor: 'rgba(0,0,0,0.12)', borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 },
-  tabBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
-  tabBadgeText: { fontSize: 10, fontWeight: '800', color: MM_Colors.textVariant },
-  tabBadgeTextActive: { color: '#FFF' },
-
-  // ── Controls ──
-  controlsRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
-  searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F0F0F5', borderRadius: 12, paddingHorizontal: 12, height: 40 },
-  searchInput: { flex: 1, fontSize: 14, color: MM_Colors.text },
-  iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F0F5', borderRadius: 12 },
-
-  // ── Stats bar ──
-  statsBar: { paddingHorizontal: 16, paddingBottom: 4 },
-  statsBarText: { fontSize: 12, color: MM_Colors.textVariant, fontWeight: '500' },
-
-  // ── Filter row ──
-  filterRowWrapper: { flexDirection: 'row', alignItems: 'center', paddingRight: 8 },
-  filterRow: { paddingBottom: 8 },
-  filterRowContent: { paddingHorizontal: 15, gap: 8, alignItems: 'center' },
-  tagManagerBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0EFFF', borderRadius: 10 },
-
-  // ── Tag pills ──
-  tagPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F0F0F5', borderWidth: 1, borderColor: 'transparent' },
-  tagPillActive: { backgroundColor: MM_Colors.primary, borderColor: MM_Colors.primary },
-  tagText: { fontSize: 13, fontWeight: '600', color: MM_Colors.textVariant, lineHeight: 16 },
-  tagTextActive: { color: '#FFF' },
-
-  // ── Bulk bar ──
-  bulkBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)', gap: 8 },
-  bulkCount: { flex: 1, fontSize: 14, fontWeight: '700', color: MM_Colors.text },
-  bulkBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, backgroundColor: '#F5F5F8' },
-  bulkBtnText: { fontSize: 13, fontWeight: '600' },
-
-  // ── Media grid ──
-  listContent: { padding: 8 },
-  mediaItem: { borderRadius: 10, overflow: 'hidden', backgroundColor: '#E9E5FF', margin: 2 },
-  mediaItemSelected: { opacity: 0.85 },
-  videoBadge: { position: 'absolute', top: 5, right: 5, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 5, paddingVertical: 3, borderRadius: 8 },
-  videoDuration: { fontSize: 10, color: '#FFF', fontWeight: '700' },
-  favBadge: { position: 'absolute', top: 5, left: 5, backgroundColor: 'rgba(255,255,255,0.9)', padding: 4, borderRadius: 8 },
-  selectedOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(99,102,241,0.45)', alignItems: 'center', justifyContent: 'center' },
-
-  // ── List view ──
-  listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 16, marginHorizontal: 8, marginBottom: 8, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2, borderWidth: 1, borderColor: 'transparent' },
-  listThumb: { width: 56, height: 56, borderRadius: 10, backgroundColor: '#E9E5FF', marginRight: 12 },
-  listItemInfo: { flex: 1 },
-  listItemName: { fontSize: 15, fontWeight: '700', color: MM_Colors.text, marginBottom: 2 },
-  listItemMeta: { fontSize: 12, color: MM_Colors.textVariant },
-  listItemTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
-  listItemRight: { alignItems: 'center', gap: 6, paddingLeft: 8 },
-
-  // ── Tags ──
-  microTag: { backgroundColor: '#F0EFFF', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
-  microTagText: { fontSize: 11, color: MM_Colors.primary, fontWeight: '600' },
-
-  // ── Albums ──
-  albumCard: { flex: 1, margin: 8, borderRadius: 18, overflow: 'hidden', backgroundColor: '#FFF', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
-  albumCover: { width: '100%', height: 130 },
-  albumCoverEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0EFFF' },
-  albumInfo: { padding: 12 },
-  albumName: { fontSize: 14, fontWeight: '700', color: MM_Colors.text },
-  albumCount: { fontSize: 12, color: MM_Colors.textVariant, marginTop: 2 },
-  albumBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3 },
-  albumBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
-
-  // ── Passwords ──
-  passItem: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#FFF', borderRadius: 18, marginHorizontal: 8, marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  passIconContainer: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  passInfo: { flex: 1 },
-  passSite: { fontSize: 16, fontWeight: '700', color: MM_Colors.text },
-  passUser: { fontSize: 13, color: MM_Colors.textVariant, marginTop: 2 },
-  passRight: { alignItems: 'flex-end', gap: 4 },
-  passEyeBtn: { padding: 4 },
-  passRevealed: { fontSize: 11, color: MM_Colors.textVariant, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', maxWidth: 100 },
-  quickCopyBtn: { padding: 6, borderRadius: 8, backgroundColor: '#F5F5F8' },
-  quickCopyBtnActive: { backgroundColor: '#E8F5E9' },
-
-  // ── Password strength ──
-  strengthContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
-  strengthBars: { flexDirection: 'row', gap: 4, flex: 1 },
-  strengthBar: { flex: 1, height: 4, borderRadius: 2 },
-  strengthLabel: { fontSize: 12, fontWeight: '700', minWidth: 70, textAlign: 'right' },
-
-  // ── FAB ──
-  fab: { position: 'absolute', bottom: 32, right: 24, width: 58, height: 58, borderRadius: 29, backgroundColor: MM_Colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: MM_Colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 16, elevation: 10 },
-
-  // ── Empty state ──
-  emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 80, paddingHorizontal: 40 },
-  emptyTitle: { fontSize: 20, fontWeight: '800', color: MM_Colors.text, marginTop: 20 },
-  emptySubtitle: { textAlign: 'center', color: MM_Colors.textVariant, marginTop: 8, lineHeight: 20, fontSize: 14 },
-  emptyActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 20, backgroundColor: MM_Colors.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 14 },
-  emptyActionBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
-
-  // ── Modals ──
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalSheet: { backgroundColor: '#FFF', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, paddingBottom: Platform.OS === 'ios' ? 44 : 32, maxHeight: height * 0.88 },
-  detailSheet: { backgroundColor: '#FFF', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, paddingBottom: Platform.OS === 'ios' ? 44 : 32 },
-  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E0E0E0', alignSelf: 'center', marginBottom: 20 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: MM_Colors.text, letterSpacing: -0.3 },
-  compactModal: { backgroundColor: '#FFF', margin: 24, borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 20 },
-
-  // ── Settings ──
-  settingSection: { fontSize: 11, fontWeight: '700', color: MM_Colors.textVariant, letterSpacing: 1.2, marginTop: 16, marginBottom: 4, paddingHorizontal: 4 },
-  settingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 14 },
-  settingIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  settingLabel: { flex: 1, fontSize: 16, fontWeight: '600', color: MM_Colors.text },
-  settingSubLabel: { fontSize: 12, color: MM_Colors.textVariant, marginTop: 2 },
-  autoLockChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#F0EFFF' },
-  autoLockChipActive: { backgroundColor: MM_Colors.primary },
-  autoLockChipText: { fontSize: 13, fontWeight: '600', color: MM_Colors.textVariant },
-  autoLockChipTextActive: { color: '#FFF' },
-  vaultStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 20, backgroundColor: '#F8F8FF', borderRadius: 16, padding: 16, justifyContent: 'space-between' },
-  statLabel: { fontSize: 12, color: MM_Colors.textVariant, fontWeight: '600' },
-  statValue: { fontSize: 12, fontWeight: '800', color: MM_Colors.primary },
-
-  // ── Password modal ──
-  passModal: { backgroundColor: '#FFF', margin: 0, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, paddingBottom: Platform.OS === 'ios' ? 44 : 32, maxHeight: height * 0.9 },
-  passModalTitle: { fontSize: 20, fontWeight: '800', color: MM_Colors.text, marginBottom: 20, letterSpacing: -0.3 },
-  inputLabel: { fontSize: 12, fontWeight: '700', color: MM_Colors.textVariant, marginBottom: 6, letterSpacing: 0.5 },
-  input: { height: 50, backgroundColor: '#F8F8FF', borderRadius: 14, paddingHorizontal: 16, marginBottom: 14, color: MM_Colors.text, fontSize: 15, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
-  passInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  passInputActions: { position: 'absolute', right: 14, flexDirection: 'row', alignItems: 'center', top: 0, height: 50 },
-  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 8 },
-  cancelBtn: { flex: 1, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F5F8' },
-  saveBtn: { flex: 1, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: MM_Colors.primary },
-  cancelBtnText: { fontWeight: '700', color: MM_Colors.textVariant, fontSize: 15 },
-  saveBtnText: { fontWeight: '700', color: '#FFF', fontSize: 15 },
-
-  // ── Password detail ──
-  detailRow: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  detailLabel: { fontSize: 11, fontWeight: '700', color: MM_Colors.textVariant, letterSpacing: 0.8, marginBottom: 4 },
-  detailValue: { fontSize: 15, color: MM_Colors.text, fontWeight: '500' },
-  detailActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
-  detailBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 50, borderRadius: 14, backgroundColor: '#F8F8FF' },
-  detailBtnText: { fontSize: 15, fontWeight: '700' },
-
-  // ── Media viewer ──
-  viewerContainer: { flex: 1, backgroundColor: '#000' },
-  viewerCounter: { position: 'absolute', top: Platform.OS === 'ios' ? 56 : 36, alignSelf: 'center', zIndex: 10, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
-  viewerCounterText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
-  viewerClose: { position: 'absolute', top: Platform.OS === 'ios' ? 56 : 36, left: 20, zIndex: 10 },
-  favBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 56 : 36, right: 20, zIndex: 10 },
-  viewerCloseBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-  fullMedia: { width: '100%', height: '60%' },
-  viewerBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
-  viewerMeta: { paddingHorizontal: 24, paddingTop: 16 },
-  viewerMetaName: { fontSize: 16, fontWeight: '700', color: '#FFF' },
-  viewerMetaDate: { fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
-  viewerTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  viewerTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
-  viewerTagText: { fontSize: 12, color: '#FFF', fontWeight: '600' },
-  addTagBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
-  addTagBtnText: { fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
-  viewerActions: { flexDirection: 'row', justifyContent: 'center', gap: 32, paddingHorizontal: 24, marginTop: 16 },
-  viewerActionBtn: { alignItems: 'center', gap: 8 },
-  viewerActionIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  viewerBtnText: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600' },
-  viewerChevronLeft: { position: 'absolute', left: 12, top: '40%', zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-  viewerChevronRight: { position: 'absolute', right: 12, top: '40%', zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-
-  // ── Tag manager ──
-  tagManagerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  tagManagerName: { fontSize: 15, fontWeight: '700', color: MM_Colors.text },
-  tagManagerCount: { fontSize: 12, color: MM_Colors.textVariant, marginTop: 2 },
-  tagManagerAction: { padding: 10 },
-
-  // scooby dooby doo
-    recoveryHintWrapper: {
-      position: 'absolute',
-      top: Platform.OS === 'ios' ? 60 : 40,
-      right: 25,
-      zIndex: 9999,
-    },
-    recoveryHintText: {
-      color: 'rgba(255, 255, 255, 0.3)', // Very faint to remain discrete
-      fontSize: 20,
-      fontWeight: '800',
-      letterSpacing: 5,
-    },
-
-  // ── Album folder navigation ──
-  albumSubHeader: {
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12,
-    paddingVertical: 10, backgroundColor: '#FFF',
-    borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)',
-  },
-  albumBackBtn: { flexDirection: 'row', alignItems: 'center', width: 70 },
-  albumBackText: { fontSize: 15, fontWeight: '600', color: MM_Colors.primary, marginLeft: 2 },
-  albumSubTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '800', color: MM_Colors.text },
-
-  // ── Swipe-to-delete ──
-  swipeDeleteBg: {
-    position: 'absolute', right: 0, top: 0, bottom: 0, width: 80,
-    backgroundColor: '#FF4B4B', borderRadius: 18, justifyContent: 'center', alignItems: 'center',
-  },
-  swipeDeleteBtn: { alignItems: 'center', justifyContent: 'center', width: 80, height: '100%' as any },
-  swipeDeleteText: { color: '#FFF', fontSize: 11, fontWeight: '700', marginTop: 2 },
-
-  // ── CSV import ──
-  csvImportBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginHorizontal: 8, marginBottom: 8, marginTop: 2,
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 12, borderWidth: 1.5, borderColor: MM_Colors.primary + '40',
-    backgroundColor: MM_Colors.primary + '0A',
-  },
-  csvImportBtnText: { fontSize: 13, fontWeight: '700', color: MM_Colors.primary },
-});

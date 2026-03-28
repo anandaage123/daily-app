@@ -134,7 +134,7 @@ export default function DashboardScreen() {
     modalContent: { backgroundColor: colors.surface, borderRadius: 20, padding: 24, width: '100%', ...Shadows.soft },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     modalTitle: { ...Typography.title, color: colors.text },
-    label: { ...Typography.caption, color: colors.textVariant, fontWeight: '700', marginBottom: 12, marginTop: 12 },
+    label: { ...Typography.caption, fontWeight: '700', marginBottom: 12, marginTop: 12 },
     input: { borderBottomWidth: 1, borderBottomColor: colors.surfaceContainer, color: colors.text, paddingVertical: 8, ...Typography.body, marginBottom: 24 },
     iconPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
     iconBox: { width: 44, height: 44, borderRadius: 10, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },

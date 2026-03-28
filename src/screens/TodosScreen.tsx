@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   TextInput,
-  Pressable,
+  TouchableOpacity,
   FlatList,
   StyleSheet,
   Alert,
@@ -12,13 +12,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
-  Animated
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { MM_Colors, Typography, Shadows, Spacing } from '../theme/Theme';
+import { useIsFocused } from '@react-navigation/native';
+import { Typography, Shadows, Spacing } from '../theme/Theme';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -33,7 +33,8 @@ interface Todo {
 }
 
 export default function TodosScreen() {
-  const navigation = useNavigation<NavigationProp<any>>();
+  const { colors, isDark } = useTheme();
+  const isFocused = useIsFocused();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [inputText, setInputText] = useState('');
   const [selectedPriority, setSelectedPriority] = useState<Priority>('med');
@@ -42,7 +43,7 @@ export default function TodosScreen() {
 
   useEffect(() => {
     loadTodos();
-  }, []);
+  }, [isFocused]);
 
   const loadTodos = async () => {
     try {
@@ -101,261 +102,299 @@ export default function TodosScreen() {
   };
 
   const getPriorityColor = (p: Priority) => {
-    if (p === 'high') return MM_Colors.error;
-    if (p === 'med') return MM_Colors.secondary;
-    return MM_Colors.tertiary;
+    if (p === 'high') return colors.error;
+    if (p === 'med') return colors.secondary || '#765600';
+    return colors.tertiary;
   };
 
   const completedCount = todos.filter(t => t.completed).length;
   const totalCount = todos.length;
   const progress = totalCount > 0 ? completedCount / totalCount : 0;
 
-  const renderHeader = () => (
-    <View style={styles.headerContent}>
-      <View style={styles.topRow}>
-        <View>
-          <Text style={styles.dateText}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase()}</Text>
-          <Text style={styles.title}>Daily Tasks</Text>
-        </View>
-        <Pressable
-          onPress={() => setIsClearModalVisible(true)}
-          style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.7 : 1 }]}
-        >
-          <MaterialCommunityIcons name="broom" size={24} color={MM_Colors.primary} />
-        </Pressable>
-      </View>
+  const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    listContent: { padding: 24, paddingTop: Platform.OS === 'ios' ? 60 : 40 },
+    header: { marginBottom: 32 },
+    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+    dateText: { ...Typography.caption, color: colors.textVariant, fontWeight: '800', letterSpacing: 1 },
+    title: { ...Typography.header, fontSize: 32, color: colors.text },
+    
+    sweepBtn: {
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...Shadows.soft,
+    },
 
-      <LinearGradient
-        colors={[MM_Colors.primary, MM_Colors.primaryLight]}
-        style={styles.progressCard}
-      >
-        <View style={styles.progressInfo}>
-          <View>
-            <Text style={styles.progressTitle}>Focus Metrics</Text>
-            <Text style={styles.progressSubtitle}>
-              {totalCount === 0
-                ? "No tasks set for today"
-                : `${completedCount} OF ${totalCount} DONE`}
-            </Text>
-          </View>
-          <MaterialCommunityIcons name="chart-donut" size={32} color={MM_Colors.white} opacity={0.6} />
-        </View>
-        <View style={styles.progressBarBg}>
-          <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
-        </View>
-        <Text style={styles.progressQuote}>
-          {progress === 1 ? "Perfect rhythm! You've mastered today." : "Your focus today is sharp. Keep the flow."}
-        </Text>
-      </LinearGradient>
+    progressCard: {
+      padding: 24,
+      borderRadius: 28,
+      backgroundColor: colors.surface,
+      ...Shadows.soft,
+      marginBottom: 32,
+    },
+    progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    progressLabel: { ...Typography.caption, fontWeight: '800', color: colors.textVariant },
+    progressPercent: { ...Typography.title, fontSize: 18, color: colors.primary },
+    progressBarBg: { height: 8, backgroundColor: colors.background, borderRadius: 4, overflow: 'hidden' },
+    progressBarFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 4 },
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Current Tasks</Text>
-      </View>
-    </View>
-  );
+    sectionTitle: { ...Typography.title, fontSize: 20, color: colors.text, marginBottom: 16 },
+
+    todoCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      padding: 18,
+      borderRadius: 22,
+      marginBottom: 12,
+      ...Shadows.soft,
+    },
+    checkbox: {
+      width: 26,
+      height: 26,
+      borderRadius: 8,
+      borderWidth: 2,
+      borderColor: colors.primary + '30',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 16,
+    },
+    checkboxActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    todoInfo: { flex: 1 },
+    todoText: { ...Typography.body, fontWeight: '600', color: colors.text },
+    todoTextDone: { textDecorationLine: 'line-through', color: colors.textVariant, opacity: 0.7 },
+    
+    priorityTag: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 6,
+    },
+    priorityDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
+    priorityLabel: { ...Typography.caption, fontSize: 10, fontWeight: '800', color: colors.textVariant },
+
+    fab: {
+      position: 'absolute',
+      bottom: 32,
+      right: 24,
+      width: 64,
+      height: 64,
+      borderRadius: 24,
+      ...Shadows.soft,
+      overflow: 'hidden',
+    },
+    fabGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(15,14,23,0.6)',
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 36,
+      borderTopRightRadius: 36,
+      padding: 32,
+      paddingBottom: Platform.OS === 'ios' ? 44 : 32,
+    },
+    sheetTitle: { ...Typography.header, fontSize: 24, color: colors.text, marginBottom: 24 },
+    input: {
+      backgroundColor: colors.background,
+      borderRadius: 16,
+      padding: 16,
+      ...Typography.body,
+      color: colors.text,
+      marginBottom: 24,
+    },
+    label: { ...Typography.caption, fontWeight: '800', color: colors.textVariant, marginBottom: 12, letterSpacing: 1 },
+    priorityRow: { flexDirection: 'row', gap: 10, marginBottom: 32 },
+    priorityBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: colors.background,
+      alignItems: 'center',
+    },
+    priorityBtnActive: {
+      backgroundColor: colors.primary + '10',
+      borderColor: colors.primary,
+    },
+    priorityBtnText: { ...Typography.caption, fontWeight: '800', color: colors.textVariant },
+    priorityBtnTextActive: { color: colors.primary },
+
+    submitBtn: {
+      backgroundColor: colors.primary,
+      paddingVertical: 18,
+      borderRadius: 18,
+      alignItems: 'center',
+      ...Shadows.soft,
+    },
+    submitBtnText: { color: '#FFF', fontWeight: '800', fontSize: 17 },
+
+    emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+    emptyText: { ...Typography.body, color: colors.textVariant, marginTop: 16, textAlign: 'center' },
+
+    clearCard: {
+      backgroundColor: colors.surface,
+      margin: 24,
+      padding: 32,
+      borderRadius: 32,
+      alignItems: 'center',
+    },
+    clearTitle: { ...Typography.header, fontSize: 22, color: colors.text, marginBottom: 12 },
+    clearSub: { ...Typography.body, color: colors.textVariant, textAlign: 'center', marginBottom: 24 },
+    clearActions: { flexDirection: 'row', gap: 12, width: '100%' },
+    clearCancel: { flex: 1, paddingVertical: 16, borderRadius: 16, backgroundColor: colors.background, alignItems: 'center' },
+    clearConfirm: { flex: 1, paddingVertical: 16, borderRadius: 16, backgroundColor: colors.error, alignItems: 'center' },
+  });
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       <FlatList
         data={todos}
         keyExtractor={item => item.id}
-        ListHeaderComponent={renderHeader}
         contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => (
-          <Pressable
-            style={({ pressed }) => [
-              styles.taskCard,
-              item.completed && styles.taskCardCompleted,
-              { opacity: pressed ? 0.7 : (item.completed ? 0.6 : 1) }
-            ]}
-            onPress={() => toggleTodo(item.id)}
-          >
-            <View style={styles.taskMain}>
-              <View style={[styles.checkbox, item.completed && { backgroundColor: MM_Colors.primary, borderColor: MM_Colors.primary }]}>
-                {item.completed && <Ionicons name="checkmark" size={18} color={MM_Colors.white} />}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <View>
+                <Text style={styles.dateText}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase()}</Text>
+                <Text style={styles.title}>Daily Tasks</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <View style={styles.taskHeaderRow}>
-                  <Text style={[styles.taskText, item.completed && styles.taskTextCompleted]}>
-                    {item.text}
-                  </Text>
-                  {item.isPrimary && !item.completed && (
-                    <View style={styles.primaryBadge}>
-                      <Text style={styles.primaryBadgeText}>FOCUS</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.taskFooter}>
-                  <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(item.priority) }]} />
-                  <Text style={styles.priorityText}>{item.priority.toUpperCase()}</Text>
-                </View>
+              <TouchableOpacity style={styles.sweepBtn} onPress={() => setIsClearModalVisible(true)}>
+                <MaterialCommunityIcons name="broom" size={24} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.progressCard}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>TODAY'S PROGRESS</Text>
+                <Text style={styles.progressPercent}>{Math.round(progress * 100)}%</Text>
+              </View>
+              <View style={styles.progressBarBg}>
+                <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
               </View>
             </View>
-            <Pressable onPress={() => deleteTodo(item.id)} style={({ pressed }) => [styles.deleteBtn, { opacity: pressed ? 0.7 : 1 }]}>
-              <Ionicons name="close-circle-outline" size={22} color={MM_Colors.textVariant} />
-            </Pressable>
-          </Pressable>
+
+            <Text style={styles.sectionTitle}>Active Focus</Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity 
+            style={styles.todoCard}
+            onPress={() => toggleTodo(item.id)}
+            onLongPress={() => {
+              Alert.alert('Delete Task', 'Remove this task?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: () => deleteTodo(item.id) }
+              ]);
+            }}
+          >
+            <View style={[styles.checkbox, item.completed && styles.checkboxActive]}>
+              {item.completed && <Ionicons name="checkmark" size={18} color="#FFF" />}
+            </View>
+            <View style={styles.todoInfo}>
+              <Text style={[styles.todoText, item.completed && styles.todoTextDone]}>
+                {item.text}
+              </Text>
+              <View style={styles.priorityTag}>
+                <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(item.priority) }]} />
+                <Text style={styles.priorityLabel}>{item.priority.toUpperCase()}</Text>
+              </View>
+            </View>
+            {item.isPrimary && !item.completed && (
+               <Ionicons name="star" size={18} color={colors.secondary || '#765600'} />
+            )}
+          </TouchableOpacity>
         )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <MaterialCommunityIcons name="notebook-outline" size={64} color={MM_Colors.surfaceContainer} />
-            <Text style={styles.emptyText}>The day is quiet. Add a task to begin.</Text>
+            <MaterialCommunityIcons name="notebook-outline" size={64} color={isDark ? colors.surfaceContainer : "#E0E0EF"} />
+            <Text style={styles.emptyText}>The day is quiet.{"\n"}Add a task to begin.</Text>
           </View>
         }
         ListFooterComponent={<View style={{ height: 100 }} />}
       />
 
+      <TouchableOpacity style={styles.fab} onPress={() => setIsAdding(true)}>
+        <LinearGradient colors={[colors.primary, colors.primaryLight]} style={styles.fabGradient}>
+          <Ionicons name="add" size={32} color="#FFF" />
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* Add Task Modal */}
+      <Modal visible={isAdding} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={styles.sheet}>
+              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24}}>
+                <Text style={[styles.sheetTitle, { marginBottom: 0 }]}>New Task</Text>
+                <TouchableOpacity onPress={() => setIsAdding(false)}>
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                style={styles.input}
+                placeholder="What needs to be done?"
+                placeholderTextColor={colors.textVariant}
+                value={inputText}
+                onChangeText={setInputText}
+                autoFocus
+              />
+
+              <Text style={styles.label}>PRIORITY</Text>
+              <View style={styles.priorityRow}>
+                {(['low', 'med', 'high'] as Priority[]).map(p => (
+                  <TouchableOpacity
+                    key={p}
+                    onPress={() => setSelectedPriority(p)}
+                    style={[styles.priorityBtn, selectedPriority === p && styles.priorityBtnActive]}
+                  >
+                    <Text style={[styles.priorityBtnText, selectedPriority === p && styles.priorityBtnTextActive]}>
+                      {p.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity style={styles.submitBtn} onPress={addTodo}>
+                <Text style={styles.submitBtnText}>Add Task</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Clear Modal */}
       <Modal visible={isClearModalVisible} transparent animationType="fade">
-         <View style={styles.modalOverlay}>
-            <View style={styles.clearModalContent}>
+         <View style={[styles.modalOverlay, { justifyContent: 'center', padding: 24 }]}>
+            <View style={styles.clearCard}>
+               <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.error + '15', justifyContent: 'center', alignItems: 'center', marginBottom: 20 }}>
+                  <MaterialCommunityIcons name="broom" size={32} color={colors.error} />
+               </View>
                <Text style={styles.clearTitle}>Sweep All Tasks?</Text>
-               <Text style={styles.clearSub}>This will permanently remove all tasks from your daily list.</Text>
+               <Text style={styles.clearSub}>This will permanently remove all tasks from your list for today.</Text>
                <View style={styles.clearActions}>
-                  <Pressable style={styles.clearCancelBtn} onPress={() => setIsClearModalVisible(false)}>
-                     <Text style={styles.clearCancelText}>Cancel</Text>
-                  </Pressable>
-                  <Pressable style={styles.clearConfirmBtn} onPress={confirmClear}>
-                     <Text style={styles.clearConfirmText}>Sweep All</Text>
-                  </Pressable>
+                  <TouchableOpacity style={styles.clearCancel} onPress={() => setIsClearModalVisible(false)}>
+                     <Text style={[styles.submitBtnText, { color: colors.textVariant }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.clearConfirm} onPress={confirmClear}>
+                     <Text style={styles.submitBtnText}>Sweep All</Text>
+                  </TouchableOpacity>
                </View>
             </View>
          </View>
       </Modal>
-
-      {!isAdding ? (
-        <Pressable
-          style={({ pressed }) => [styles.fab, { opacity: pressed ? 0.8 : 1 }]}
-          onPress={() => setIsAdding(true)}
-        >
-          <LinearGradient colors={[MM_Colors.primary, MM_Colors.primaryLight]} style={styles.fabGradient}>
-            <Ionicons name="add" size={32} color={MM_Colors.white} />
-          </LinearGradient>
-        </Pressable>
-      ) : (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.addOverlay}
-        >
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsAdding(false)} />
-          <View style={styles.addSheet}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>New Task</Text>
-              <Pressable onPress={() => setIsAdding(false)}>
-                <Text style={{ color: MM_Colors.primary, fontSize: 17 }}>Cancel</Text>
-              </Pressable>
-            </View>
-
-            <TextInput
-              style={styles.input}
-              placeholder="What needs to be done?"
-              placeholderTextColor={MM_Colors.textVariant}
-              value={inputText}
-              onChangeText={setInputText}
-              autoFocus
-              onSubmitEditing={addTodo}
-            />
-
-            <View style={styles.priorityRow}>
-              <Text style={styles.label}>PRIORITY</Text>
-              <View style={styles.priorityOptions}>
-                {(['low', 'med', 'high'] as Priority[]).map(p => (
-                  <Pressable
-                    key={p}
-                    onPress={() => setSelectedPriority(p)}
-                    style={({ pressed }) => [
-                      styles.pOption,
-                      selectedPriority === p && { backgroundColor: getPriorityColor(p), borderColor: getPriorityColor(p) },
-                      { opacity: pressed ? 0.7 : 1 }
-                    ]}
-                  >
-                    <Text style={[styles.pOptionText, selectedPriority === p && { color: MM_Colors.white }]}>
-                      {p.toUpperCase()}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-
-            <Pressable style={({ pressed }) => [styles.submitBtn, { opacity: pressed ? 0.8 : 1 }]} onPress={addTodo}>
-              <Text style={styles.submitBtnText}>Add Task</Text>
-            </Pressable>
-          </View>
-        </KeyboardAvoidingView>
-      )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: MM_Colors.background },
-  listContent: { padding: Spacing.padding, paddingTop: Platform.OS === 'ios' ? 60 : 40 },
-  headerContent: { marginBottom: 24 },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  dateText: { ...Typography.caption, fontWeight: '700', letterSpacing: 1.5 },
-  title: { ...Typography.header },
-  iconButton: { padding: 10, backgroundColor: MM_Colors.white, borderRadius: 12, ...Shadows.soft },
-
-  progressCard: { padding: 24, borderRadius: 24, marginBottom: 32, ...Shadows.soft },
-  progressInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  progressTitle: { ...Typography.title, color: MM_Colors.white, fontSize: 18 },
-  progressSubtitle: { ...Typography.caption, color: MM_Colors.white, opacity: 0.8, fontWeight: '700' },
-  progressBarBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 3, marginBottom: 12 },
-  progressBarFill: { height: 6, backgroundColor: MM_Colors.white, borderRadius: 3 },
-  progressQuote: { ...Typography.body, color: MM_Colors.white, fontSize: 13, fontStyle: 'italic', opacity: 0.9 },
-
-  sectionHeader: { marginBottom: 16 },
-  sectionTitle: { ...Typography.title, fontSize: 20 },
-
-  taskCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: MM_Colors.white,
-    padding: 16,
-    borderRadius: Spacing.borderRadius,
-    marginBottom: 12,
-    ...Shadows.soft,
-  },
-  taskCardCompleted: { opacity: 0.6 },
-  taskMain: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  checkbox: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: MM_Colors.surfaceContainer, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
-  taskHeaderRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
-  taskText: { ...Typography.body, fontWeight: '600' },
-  taskTextCompleted: { textDecorationLine: 'line-through', color: MM_Colors.textVariant },
-  primaryBadge: { backgroundColor: MM_Colors.background, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 },
-  primaryBadgeText: { ...Typography.caption, fontSize: 10, fontWeight: '800', color: MM_Colors.primary },
-  taskFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  priorityDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
-  priorityText: { ...Typography.caption, fontSize: 10, fontWeight: '700' },
-  deleteBtn: { padding: 4 },
-
-  emptyState: { alignItems: 'center', marginTop: 60 },
-  emptyText: { ...Typography.body, color: MM_Colors.textVariant, marginTop: 16, textAlign: 'center' },
-
-  fab: { position: 'absolute', right: 20, bottom: 30, borderRadius: 30, ...Shadows.soft },
-  fabGradient: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
-
-  addOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'flex-end' },
-  addSheet: { backgroundColor: MM_Colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  sheetTitle: { ...Typography.title },
-  input: { ...Typography.body, borderBottomWidth: 1, borderBottomColor: MM_Colors.surfaceContainer, paddingVertical: 12, marginBottom: 24 },
-  label: { ...Typography.caption, fontWeight: '700', marginBottom: 12 },
-  priorityRow: { marginBottom: 32 },
-  priorityOptions: { flexDirection: 'row', gap: 10 },
-  pOption: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: MM_Colors.surfaceContainer, alignItems: 'center' },
-  pOptionText: { ...Typography.caption, fontWeight: '700' },
-  submitBtn: { backgroundColor: MM_Colors.primary, paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
-  submitBtnText: { color: MM_Colors.white, fontSize: 17, fontWeight: '600' },
-
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.3)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  clearModalContent: { backgroundColor: MM_Colors.white, borderRadius: 14, padding: 20, width: '100%', maxWidth: 280, alignItems: 'center', ...Shadows.soft },
-  clearTitle: { ...Typography.title, fontSize: 17, marginBottom: 4 },
-  clearSub: { ...Typography.body, fontSize: 13, textAlign: 'center', color: MM_Colors.textVariant, marginBottom: 20 },
-  clearActions: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: MM_Colors.surfaceContainer, width: '100%' },
-  clearCancelBtn: { flex: 1, padding: 12, alignItems: 'center', borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: MM_Colors.surfaceContainer },
-  clearCancelText: { ...Typography.body, color: MM_Colors.primary, fontSize: 17 },
-  clearConfirmBtn: { flex: 1, padding: 12, alignItems: 'center' },
-  clearConfirmText: { ...Typography.body, color: MM_Colors.error, fontSize: 17, fontWeight: '600' },
-});

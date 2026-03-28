@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../theme/Theme';
+import { useTheme } from '../context/ThemeContext';
 
 import DashboardScreen from '../screens/DashboardScreen';
 import TodosScreen from '../screens/TodosScreen';
@@ -15,29 +15,22 @@ import BudgetScreen from '../screens/BudgetScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const NavigationTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: '#F9F5FF',
-    card: '#FFFFFF',
-    text: '#2C2A51',
-  },
-};
-
 function TabNavigator() {
+  const { colors, isDark } = useTheme();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E9E5FF',
+          backgroundColor: colors.surface,
+          borderTopColor: isDark ? colors.surfaceContainer : '#E9E5FF',
           height: 90,
           paddingTop: 10,
+          elevation: 0,
         },
-        tabBarActiveTintColor: '#4052B6',
-        tabBarInactiveTintColor: '#5A5781',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textVariant,
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: any = 'home';
           if (route.name === 'Dashboard') {
@@ -70,11 +63,24 @@ function TabNavigator() {
 }
 
 export default function AppNavigator() {
+  const { colors, isDark } = useTheme();
+
+  const NavigationTheme = {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      border: isDark ? colors.surfaceContainer : '#E9E5FF',
+    },
+  };
+
   return (
     <NavigationContainer theme={NavigationTheme}>
       <Stack.Navigator screenOptions={{
         headerShown: false,
-        animation: 'slide_from_right', // Enables swipe-to-change between stack screens if applicable
+        animation: 'slide_from_right', 
       }}>
         <Stack.Screen name="MainTabs" component={TabNavigator} />
         <Stack.Screen 
@@ -86,3 +92,4 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
+
