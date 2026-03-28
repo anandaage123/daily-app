@@ -2,7 +2,7 @@
   "expo": {
     "name": "Monolith",
     "slug": "daily-app",
-    "version": "2.1.0",
+    "version": "2.1.2",
     "orientation": "portrait",
     "icon": "./assets/AppIcons/appstore.png",
     "userInterfaceStyle": "dark",
