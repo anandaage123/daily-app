@@ -1,11 +1,11 @@
 {
-  "version": "3.1.10",
-  "build": 27,
-  "versionCode": 27,
-  "releaseDate": "2026-03-29",
-  "releaseNotes": "\u2022 Bug fixes and improvements",
-  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v3.1.10/Monolith.apk",
-  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v3.1.10",
+  "version": "3.1.11",
+  "build": 28,
+  "versionCode": 28,
+  "releaseDate": "2026-03-30",
+  "releaseNotes": "\u2022 Fixes the UI on welcome screen",
+  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v3.1.11/Monolith.apk",
+  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v3.1.11",
   "minBuildRequired": 1,
   "forceUpdate": false
 }
