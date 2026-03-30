@@ -2,7 +2,7 @@
   "expo": {
     "name": "Monolith",
     "slug": "daily-app",
-    "version": "3.1.12",
+    "version": "3.1.13",
     "orientation": "portrait",
     "icon": "./assets/AppIcons/appstore.png",
     "userInterfaceStyle": "dark",
@@ -21,7 +21,7 @@
         "foregroundImage": "./assets/AppIcons/playstore.png"
       },
       "package": "com.anandaage.dailyapp",
-      "versionCode": 29
+      "versionCode": 30
     },
     "web": {
       "favicon": "./assets/favicon.png"
