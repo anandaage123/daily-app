@@ -418,7 +418,7 @@ function PulsingRing({ delay, color }: { delay: number; color: string }) {
 // EasterEgg — multi-step cinematic journey
 //
 //  Step 0 → "Classified" screen (redacted style)
-//  Step 1 → Rose backdrop + AMRUTA letter reveal
+//  Step 1 → Rose backdrop + letter reveal
 //  Step 2 → Poem lines appear one by one
 //  Step 3 → Signature + close
 // ─────────────────────────────────────────────────────────────────────────────
@@ -876,7 +876,6 @@ export default function App() {
       Animated.timing(logoShake, { toValue: 0, duration: 50, useNativeDriver: true }),
     ]).start();
 
-    // At 10 taps show the "AMRUTA DETECTED" hint
     if (tapCount.current === 10) {
       detectedFade.setValue(0);
       detectedSlide.setValue(8);
@@ -1015,7 +1014,6 @@ export default function App() {
             </Animated.View>
           </TouchableOpacity>
 
-          {/* ── AMRUTA DETECTED hint — appears at tap 10, gone at tap 20 ── */}
           <Animated.View
             pointerEvents="none"
             style={[
@@ -1123,7 +1121,6 @@ const styles = StyleSheet.create({
     opacity: 0.8, transform: [{ rotate: '-45deg' }],
   },
 
-  // ── AMRUTA DETECTED hint ──
   detectedWrap: {
     marginTop: -24,
     marginBottom: 16,
