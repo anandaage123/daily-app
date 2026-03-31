@@ -1,11 +1,11 @@
 {
-  "version": "3.2.0",
-  "build": 32,
-  "versionCode": 32,
+  "version": "3.2.1",
+  "build": 33,
+  "versionCode": 33,
   "releaseDate": "2026-03-31",
-  "releaseNotes": "\u2022 Fixed tab-switching flash bug on the Todos screen\n\u2022 Migrated tasks to seamless local AsyncStorage\n\u2022 Removed annoying Android file permission pop-ups\n\u2022 Optimized fast tab transitions without invisible ghost tasks",
-  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v3.2.0/Monolith.apk",
-  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v3.2.0",
+  "releaseNotes": "\u2022 Fixes the monthly limit setting issue",
+  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v3.2.1/Monolith.apk",
+  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v3.2.1",
   "minBuildRequired": 1,
   "forceUpdate": false
 }
