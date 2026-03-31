@@ -22,19 +22,19 @@ const { width, height } = Dimensions.get('window');
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 const T = {
-  bg:          '#080612',
-  accent:      '#5B4FE8',
-  accentMid:   '#8B7FF5',
+  bg: '#080612',
+  accent: '#5B4FE8',
+  accentMid: '#8B7FF5',
   accentLight: '#C4BDFF',
-  gold:        '#E8C547',
-  white:       '#FFFFFF',
-  muted:       'rgba(196, 189, 255, 0.45)',
-  border:      'rgba(139, 127, 245, 0.2)',
-  rose:        '#FF6B9D',
-  roseDim:     '#C44B73',
-  roseFaint:   'rgba(255,107,157,0.12)',
-  blush:       '#FFB3C6',
-  roseDeep:    '#8B1A4A',
+  gold: '#E8C547',
+  white: '#FFFFFF',
+  muted: 'rgba(196, 189, 255, 0.45)',
+  border: 'rgba(139, 127, 245, 0.2)',
+  rose: '#FF6B9D',
+  roseDim: '#C44B73',
+  roseFaint: 'rgba(255,107,157,0.12)',
+  blush: '#FFB3C6',
+  roseDeep: '#8B1A4A',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -170,7 +170,7 @@ function CornerBracket({
 }) {
   const abs: Record<string, number> = {};
   if (pos === 'tl' || pos === 'bl') abs.left = 0; else abs.right = 0;
-  if (pos === 'tl' || pos === 'tr') abs.top = 0;  else abs.bottom = 0;
+  if (pos === 'tl' || pos === 'tr') abs.top = 0; else abs.bottom = 0;
   const sx = pos === 'tr' || pos === 'br' ? -1 : 1;
   const sy = pos === 'bl' || pos === 'br' ? -1 : 1;
   return (
@@ -205,8 +205,8 @@ function SeekBar({ progress }: { progress: Animated.Value }) {
 // EnterButton
 // ─────────────────────────────────────────────────────────────────────────────
 function EnterButton({ onPress, visible }: { onPress: () => void; visible: Animated.Value }) {
-  const ripple     = useRef(new Animated.Value(0)).current;
-  const rippleOp   = useRef(new Animated.Value(0)).current;
+  const ripple = useRef(new Animated.Value(0)).current;
+  const rippleOp = useRef(new Animated.Value(0)).current;
   const pressScale = useRef(new Animated.Value(1)).current;
   const borderGlow = useRef(new Animated.Value(0)).current;
 
@@ -286,8 +286,8 @@ function EnterButton({ onPress, visible }: { onPress: () => void; visible: Anima
 function FloatingHeart({ x, delay, size = 18 }: { x: number; delay: number; size?: number }) {
   const translateY = useRef(new Animated.Value(0)).current;
   const translateX = useRef(new Animated.Value(0)).current;
-  const opacity    = useRef(new Animated.Value(0)).current;
-  const scale      = useRef(new Animated.Value(0.3 + Math.random() * 0.7)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.3 + Math.random() * 0.7)).current;
 
   useEffect(() => {
     const drift = (Math.random() - 0.5) * 60;
@@ -340,7 +340,7 @@ function LetterReveal({
   text: string; style?: object; baseDelay?: number; color?: string;
 }) {
   const letters = text.split('');
-  const anims   = useRef(letters.map(() => new Animated.Value(0))).current;
+  const anims = useRef(letters.map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
     const animations = anims.map((anim, i) =>
@@ -378,7 +378,7 @@ function LetterReveal({
 // PulsingRing — expands outward and fades, like a sonar ping
 // ─────────────────────────────────────────────────────────────────────────────
 function PulsingRing({ delay, color }: { delay: number; color: string }) {
-  const scale   = useRef(new Animated.Value(0.3)).current;
+  const scale = useRef(new Animated.Value(0.3)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -437,40 +437,40 @@ function EasterEggOverlay({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
 
   // ── Step 0: "Classified" screen ──
-  const s0Fade      = useRef(new Animated.Value(0)).current;
-  const s0SlideY    = useRef(new Animated.Value(30)).current;
-  const scanLine    = useRef(new Animated.Value(0)).current;    // 0→1 top to bottom
-  const redactW1    = useRef(new Animated.Value(0)).current;
-  const redactW2    = useRef(new Animated.Value(0)).current;
-  const redactW3    = useRef(new Animated.Value(0)).current;
+  const s0Fade = useRef(new Animated.Value(0)).current;
+  const s0SlideY = useRef(new Animated.Value(30)).current;
+  const scanLine = useRef(new Animated.Value(0)).current;    // 0→1 top to bottom
+  const redactW1 = useRef(new Animated.Value(0)).current;
+  const redactW2 = useRef(new Animated.Value(0)).current;
+  const redactW3 = useRef(new Animated.Value(0)).current;
   const unlockScale = useRef(new Animated.Value(0)).current;
-  const unlockFade  = useRef(new Animated.Value(0)).current;
+  const unlockFade = useRef(new Animated.Value(0)).current;
 
   // ── Step 1: Name reveal ──
-  const s1Fade     = useRef(new Animated.Value(0)).current;
-  const roseGlow   = useRef(new Animated.Value(0)).current;
-  const forFade    = useRef(new Animated.Value(0)).current;
+  const s1Fade = useRef(new Animated.Value(0)).current;
+  const roseGlow = useRef(new Animated.Value(0)).current;
+  const forFade = useRef(new Animated.Value(0)).current;
   const heartScale = useRef(new Animated.Value(0)).current;
   const heartPulse = useRef(new Animated.Value(1)).current;
 
   // ── Step 2: Poem ──
-  const s2Fade  = useRef(new Animated.Value(0)).current;
-  const p1Fade  = useRef(new Animated.Value(0)).current;
+  const s2Fade = useRef(new Animated.Value(0)).current;
+  const p1Fade = useRef(new Animated.Value(0)).current;
   const p1Slide = useRef(new Animated.Value(20)).current;
-  const p2Fade  = useRef(new Animated.Value(0)).current;
+  const p2Fade = useRef(new Animated.Value(0)).current;
   const p2Slide = useRef(new Animated.Value(20)).current;
-  const p3Fade  = useRef(new Animated.Value(0)).current;
+  const p3Fade = useRef(new Animated.Value(0)).current;
   const p3Slide = useRef(new Animated.Value(20)).current;
-  const p4Fade  = useRef(new Animated.Value(0)).current;
+  const p4Fade = useRef(new Animated.Value(0)).current;
   const p4Slide = useRef(new Animated.Value(20)).current;
   const nextBtnFade = useRef(new Animated.Value(0)).current;
 
   // ── Step 3: Signature ──
-  const s3Fade     = useRef(new Animated.Value(0)).current;
-  const sigFade    = useRef(new Animated.Value(0)).current;
-  const sigSlide   = useRef(new Animated.Value(30)).current;
-  const closeFade  = useRef(new Animated.Value(0)).current;
-  const finalGlow  = useRef(new Animated.Value(0)).current;
+  const s3Fade = useRef(new Animated.Value(0)).current;
+  const sigFade = useRef(new Animated.Value(0)).current;
+  const sigSlide = useRef(new Animated.Value(30)).current;
+  const closeFade = useRef(new Animated.Value(0)).current;
+  const finalGlow = useRef(new Animated.Value(0)).current;
 
   // Master overlay
   const masterFade = useRef(new Animated.Value(0)).current;
@@ -540,7 +540,7 @@ function EasterEggOverlay({ onClose }: { onClose: () => void }) {
     Animated.sequence([
       Animated.timing(s0Fade, { toValue: 0, duration: 400, useNativeDriver: true }),
       Animated.parallel([
-        Animated.timing(s1Fade,   { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(s1Fade, { toValue: 1, duration: 500, useNativeDriver: true }),
         Animated.timing(roseGlow, { toValue: 1, duration: 800, useNativeDriver: true }),
       ]),
       Animated.delay(200),
@@ -562,22 +562,22 @@ function EasterEggOverlay({ onClose }: { onClose: () => void }) {
       Animated.timing(s2Fade, { toValue: 1, duration: 500, useNativeDriver: true }),
       Animated.delay(300),
       Animated.parallel([
-        Animated.timing(p1Fade,  { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(p1Fade, { toValue: 1, duration: 600, useNativeDriver: true }),
         Animated.timing(p1Slide, { toValue: 0, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
       Animated.delay(500),
       Animated.parallel([
-        Animated.timing(p2Fade,  { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(p2Fade, { toValue: 1, duration: 600, useNativeDriver: true }),
         Animated.timing(p2Slide, { toValue: 0, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
       Animated.delay(500),
       Animated.parallel([
-        Animated.timing(p3Fade,  { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(p3Fade, { toValue: 1, duration: 600, useNativeDriver: true }),
         Animated.timing(p3Slide, { toValue: 0, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
       Animated.delay(500),
       Animated.parallel([
-        Animated.timing(p4Fade,  { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(p4Fade, { toValue: 1, duration: 600, useNativeDriver: true }),
         Animated.timing(p4Slide, { toValue: 0, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
       Animated.delay(600),
@@ -589,12 +589,12 @@ function EasterEggOverlay({ onClose }: { onClose: () => void }) {
     Animated.sequence([
       Animated.timing(s2Fade, { toValue: 0, duration: 350, useNativeDriver: true }),
       Animated.parallel([
-        Animated.timing(s3Fade,   { toValue: 1, duration: 500, useNativeDriver: true }),
-        Animated.timing(finalGlow,{ toValue: 1, duration: 1200, useNativeDriver: true }),
+        Animated.timing(s3Fade, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(finalGlow, { toValue: 1, duration: 1200, useNativeDriver: true }),
       ]),
       Animated.delay(300),
       Animated.parallel([
-        Animated.timing(sigFade,  { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(sigFade, { toValue: 1, duration: 800, useNativeDriver: true }),
         Animated.timing(sigSlide, { toValue: 0, duration: 800, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       ]),
       Animated.delay(800),
@@ -714,8 +714,8 @@ function EasterEggOverlay({ onClose }: { onClose: () => void }) {
 
         {/* Pulsing sonar rings */}
         <View style={styles.ringContainer}>
-          <PulsingRing delay={0}    color={T.rose} />
-          <PulsingRing delay={700}  color={T.rose} />
+          <PulsingRing delay={0} color={T.rose} />
+          <PulsingRing delay={700} color={T.rose} />
           <PulsingRing delay={1400} color={T.rose} />
         </View>
 
@@ -739,7 +739,7 @@ function EasterEggOverlay({ onClose }: { onClose: () => void }) {
           </Animated.Text>
           <Animated.Text style={[styles.dedicatedSub, { opacity: forFade }]}>
             you were always the destination.
-          </Animated.Text>        
+          </Animated.Text>
         </Animated.View>
 
         <Animated.View style={[styles.nextWrap, { opacity: nextBtnFade }]}>
@@ -845,35 +845,35 @@ function EasterEggOverlay({ onClose }: { onClose: () => void }) {
 // Main App
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [showSplash,    setShowSplash]    = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const [updateManifest, setUpdateManifest] = useState<VersionManifest | null>(null);
 
   const tapCount = useRef(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const masterFade      = useRef(new Animated.Value(0)).current;
-  const logoScale       = useRef(new Animated.Value(0.4)).current;
-  const logoRotate      = useRef(new Animated.Value(-30)).current;
-  const nameFade        = useRef(new Animated.Value(0)).current;
-  const nameSlide       = useRef(new Animated.Value(50)).current;
-  const bracketFade     = useRef(new Animated.Value(0)).current;
-  const creatorFade     = useRef(new Animated.Value(0)).current;
-  const seekProgress    = useRef(new Animated.Value(0)).current;
-  const btnFade         = useRef(new Animated.Value(0)).current;
-  const exitFade        = useRef(new Animated.Value(1)).current;
-  const corePulse       = useRef(new Animated.Value(1)).current;
-  const logoShake       = useRef(new Animated.Value(0)).current;
-  const detectedFade    = useRef(new Animated.Value(0)).current;
-  const detectedSlide   = useRef(new Animated.Value(8)).current;
+  const masterFade = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.4)).current;
+  const logoRotate = useRef(new Animated.Value(-30)).current;
+  const nameFade = useRef(new Animated.Value(0)).current;
+  const nameSlide = useRef(new Animated.Value(50)).current;
+  const bracketFade = useRef(new Animated.Value(0)).current;
+  const creatorFade = useRef(new Animated.Value(0)).current;
+  const seekProgress = useRef(new Animated.Value(0)).current;
+  const btnFade = useRef(new Animated.Value(0)).current;
+  const exitFade = useRef(new Animated.Value(1)).current;
+  const corePulse = useRef(new Animated.Value(1)).current;
+  const logoShake = useRef(new Animated.Value(0)).current;
+  const detectedFade = useRef(new Animated.Value(0)).current;
+  const detectedSlide = useRef(new Animated.Value(8)).current;
 
   const handleLogoTap = useCallback(() => {
     tapCount.current += 1;
 
     Animated.sequence([
-      Animated.timing(logoShake, { toValue: 5,  duration: 50, useNativeDriver: true }),
+      Animated.timing(logoShake, { toValue: 5, duration: 50, useNativeDriver: true }),
       Animated.timing(logoShake, { toValue: -5, duration: 50, useNativeDriver: true }),
-      Animated.timing(logoShake, { toValue: 0,  duration: 50, useNativeDriver: true }),
+      Animated.timing(logoShake, { toValue: 0, duration: 50, useNativeDriver: true }),
     ]).start();
 
     // At 10 taps show the "AMRUTA DETECTED" hint
@@ -882,7 +882,7 @@ export default function App() {
       detectedSlide.setValue(8);
       Animated.sequence([
         Animated.parallel([
-          Animated.timing(detectedFade,  { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.timing(detectedFade, { toValue: 1, duration: 400, useNativeDriver: true }),
           Animated.timing(detectedSlide, { toValue: 0, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
         ]),
         Animated.delay(1800),
@@ -909,7 +909,7 @@ export default function App() {
       try {
         const manifest = await checkForUpdates();
         if (manifest) setUpdateManifest(manifest);
-      } catch (_) {}
+      } catch (_) { }
     });
   }, []);
 
@@ -940,7 +940,7 @@ export default function App() {
       ]),
       Animated.delay(180),
       Animated.parallel([
-        Animated.timing(nameFade,  { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(nameFade, { toValue: 1, duration: 600, useNativeDriver: true }),
         Animated.timing(nameSlide, {
           toValue: 0, duration: 600,
           easing: Easing.out(Easing.cubic), useNativeDriver: true,
@@ -962,7 +962,7 @@ export default function App() {
         try {
           const manifest = await checkForUpdates();
           if (manifest) setUpdateManifest(manifest);
-        } catch (_) {}
+        } catch (_) { }
       }
     });
     return () => { sub.remove(); };
@@ -977,9 +977,9 @@ export default function App() {
       <Animated.View style={[styles.container, { opacity: exitFade }]}>
         <StatusBar barStyle="light-content" backgroundColor={T.bg} translucent />
 
-        <GlowOrb cx={width * 0.15} cy={height * 0.2}  size={320} color={T.accent}    opacity={0.06} dur={7000} />
+        <GlowOrb cx={width * 0.15} cy={height * 0.2} size={320} color={T.accent} opacity={0.06} dur={7000} />
         <GlowOrb cx={width * 0.85} cy={height * 0.75} size={260} color={T.accentMid} opacity={0.05} dur={9000} />
-        <GlowOrb cx={width * 0.5}  cy={height * 0.48} size={200} color={T.gold}      opacity={0.025} dur={5500} />
+        <GlowOrb cx={width * 0.5} cy={height * 0.48} size={200} color={T.gold} opacity={0.025} dur={5500} />
 
         <StarField opacity={masterFade} />
         <View style={styles.topRule} />
@@ -995,8 +995,8 @@ export default function App() {
               ]}
             >
               <OrbitalArc size={170} color={T.accentLight} duration={6000} thickness={1} />
-              <OrbitalArc size={130} color={T.accentMid}   duration={4000} thickness={1.5} reverse />
-              <OrbitalArc size={92}  color={T.accentLight} duration={3000} thickness={1} />
+              <OrbitalArc size={130} color={T.accentMid} duration={4000} thickness={1.5} reverse />
+              <OrbitalArc size={92} color={T.accentLight} duration={3000} thickness={1} />
 
               <View style={styles.logoInner}>
                 <CornerBracket pos="tl" color={T.accentLight} opacity={bracketFade} size={20} />
@@ -1336,7 +1336,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic', letterSpacing: 0.3,
   },
   poemAccent: { color: T.blush, fontWeight: '500' },
-  poemGap:    { height: 12 },
+  poemGap: { height: 12 },
 
   // Step 3 — Signature card (contained, no overflow)
   sigCard: {
