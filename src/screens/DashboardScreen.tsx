@@ -23,6 +23,7 @@ import { useNavigation, NavigationProp, useIsFocused } from '@react-navigation/n
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { Typography, Shadows, Spacing } from '../theme/Theme';
+import { scaleFontSize } from '../utils/ResponsiveSize';
 import { APP_VERSION, APP_BUILD } from '../services/UpdateService';
 import { useTheme } from '../context/ThemeContext';
 
@@ -56,6 +57,7 @@ interface Habit {
   count: number;
   iconName: string;
   iconType: string;
+  lastCompletedDate?: string; // Track last completion date (YYYY-MM-DD format)
 }
 
 export default function DashboardScreen() {
@@ -81,11 +83,11 @@ export default function DashboardScreen() {
     quoteCard: { width: '100%', borderRadius: 24, ...Shadows.soft, overflow: 'hidden' },
     quoteGradient: { padding: 24 },
     quoteText: { ...Typography.title, color: '#FFFFFF', lineHeight: 28 },
-    quoteAuthor: { ...Typography.body, color: '#FFFFFF', opacity: 0.8, marginTop: 12, fontSize: 15 },
+    quoteAuthor: { ...Typography.body, color: '#FFFFFF', opacity: 0.8, marginTop: 12, fontSize: scaleFontSize(15) },
 
     ritualsContainer: { marginBottom: 40 },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 },
-    sectionTitle: { ...Typography.header, fontSize: 24, color: colors.text },
+    sectionTitle: { ...Typography.header, fontSize: scaleFontSize(24), color: colors.text },
     sectionBadge: { ...Typography.caption, color: colors.primary, fontWeight: '800' },
 
     habitsGrid: { gap: 12 },
@@ -110,16 +112,16 @@ export default function DashboardScreen() {
     weatherContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     weatherLoadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
     loadingText: { ...Typography.caption, color: colors.primary },
-    cityText: { ...Typography.title, fontSize: 18, color: colors.text },
+    cityText: { ...Typography.title, fontSize: scaleFontSize(18), color: colors.text },
     weatherStatus: { ...Typography.caption, color: colors.textVariant, marginTop: 2 },
     tempRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 12 },
-    tempText: { ...Typography.header, fontSize: 44, color: colors.text },
+    tempText: { ...Typography.header, fontSize: scaleFontSize(44), color: colors.text },
     tempUnit: { ...Typography.title, marginLeft: 2, color: colors.textVariant },
 
     metricsCard: { backgroundColor: colors.surface, borderRadius: 24, padding: 24, marginBottom: 20, ...Shadows.soft },
     metricsTitle: { ...Typography.title, color: colors.text, marginBottom: 20 },
     metricRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 },
-    metricLabel: { ...Typography.body, fontSize: 15, color: colors.textVariant },
+    metricLabel: { ...Typography.body, fontSize: scaleFontSize(15), color: colors.textVariant },
     metricValue: { ...Typography.body, color: colors.text, fontWeight: '700' },
     progressBg: { height: 6, backgroundColor: colors.background, borderRadius: 3, overflow: 'hidden' },
     progressFill: { height: '100%', borderRadius: 3 },
@@ -163,7 +165,7 @@ export default function DashboardScreen() {
     iconBox: { width: 44, height: 44, borderRadius: 10, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
     iconBoxSelected: { backgroundColor: colors.primary },
     saveBtn: { backgroundColor: colors.primary, padding: 16, borderRadius: 12, alignItems: 'center' },
-    saveBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+    saveBtnText: { color: '#FFF', fontWeight: '700', fontSize: scaleFontSize(16) },
   });
 
   // State
@@ -171,7 +173,6 @@ export default function DashboardScreen() {
   const [newHabitName, setNewHabitName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState(HABIT_ICONS[0]);
   const [isAddingHabit, setIsAddingHabit] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [habitToDelete, setHabitToDelete] = useState<string | null>(null);
@@ -196,6 +197,81 @@ export default function DashboardScreen() {
   const quoteTranslateX = useRef(new Animated.Value(0)).current;
   const habitDeleteAnim = useRef(new Animated.Value(1)).current;
 
+  /**
+   * Get today's date in YYYY-MM-DD format
+   */
+  const getTodayString = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
+  /**
+   * Check if a date string is from today
+   */
+  const isToday = (dateString?: string) => {
+    if (!dateString) return false;
+    return dateString === getTodayString();
+  };
+
+  /**
+   * Check if a date string is from yesterday
+   */
+  const isYesterday = (dateString?: string) => {
+    if (!dateString) return false;
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayString = yesterday.toISOString().split('T')[0];
+    return dateString === yesterdayString;
+  };
+
+  /**
+   * Reset completion status and streaks at the start of each new day
+   * - If a habit was completed today, keep it as is
+   * - If a habit was last completed yesterday, reset completed to false but keep the streak
+   * - If a habit was last completed more than 1 day ago, reset both completed and streak to 0
+   */
+  const checkAndResetHabitsDaily = async (habitsToCheck: Habit[]) => {
+    const today = getTodayString();
+    let updated = false;
+
+    const updatedHabits = habitsToCheck.map((habit) => {
+      const lastCompleted = habit.lastCompletedDate;
+
+      // If already completed today, don't change anything
+      if (isToday(lastCompleted)) {
+        return habit;
+      }
+
+      // If not completed today, reset the completed flag
+      if (!isToday(lastCompleted)) {
+        updated = true;
+        
+        // Check if it was completed yesterday
+        if (isYesterday(lastCompleted)) {
+          // Keep the streak, just reset the completed flag
+          return {
+            ...habit,
+            completed: false
+          };
+        } else {
+          // More than 1 day has passed, reset the streak
+          return {
+            ...habit,
+            completed: false,
+            count: 0
+          };
+        }
+      }
+
+      return habit;
+    });
+
+    if (updated) {
+      setHabits(updatedHabits);
+      await AsyncStorage.setItem('@habits_v3', JSON.stringify(updatedHabits));
+    }
+  };
+
   useEffect(() => {
     loadEssentialData();
     const handle = requestIdleCallback(() => {
@@ -207,6 +283,8 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     if (isFocused && isReady) {
+      // Check and reset habits daily when screen comes into focus
+      checkAndResetHabitsDaily(habits);
       loadBudgetMetrics();
       if (!weather) updateWeatherByLocation(false);
     }
@@ -220,7 +298,12 @@ export default function DashboardScreen() {
         AsyncStorage.getItem('@quote_cache')
       ]);
 
-      if (cachedHabits) setHabits(JSON.parse(cachedHabits));
+      if (cachedHabits) {
+        const parsedHabits = JSON.parse(cachedHabits);
+        setHabits(parsedHabits);
+        // Check and reset habits for the new day
+        await checkAndResetHabitsDaily(parsedHabits);
+      }
       if (cachedWeather) setWeather(JSON.parse(cachedWeather));
       if (cachedQuote) setQuote(JSON.parse(cachedQuote));
 
@@ -257,16 +340,17 @@ export default function DashboardScreen() {
     Animated.stagger(120, animations).start();
   };
 
-  const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([loadHabitsFromStorage(), updateWeatherByLocation(true), fetchNewQuote(), loadBudgetMetrics()]);
-    setRefreshing(false);
-  }, []);
+
 
   const loadHabitsFromStorage = async () => {
     try {
       const stored = await AsyncStorage.getItem('@habits_v3');
-      if (stored) setHabits(JSON.parse(stored));
+      if (stored) {
+        const parsedHabits = JSON.parse(stored);
+        setHabits(parsedHabits);
+        // Check and reset habits for the new day
+        await checkAndResetHabitsDaily(parsedHabits);
+      }
     } catch (e) { }
   };
 
@@ -276,7 +360,7 @@ export default function DashboardScreen() {
       const storedLimit = await AsyncStorage.getItem('@budget_limit_v2');
 
       const expenses = storedExpenses ? JSON.parse(storedExpenses) : [];
-      const limit = storedLimit ? parseFloat(storedLimit) : 4500;
+      const limit = storedLimit ? parseFloat(storedLimit) : 10000;
 
       const totalSpent = expenses.reduce((sum: number, item: any) => item.type === 'expense' ? sum + item.amount : sum, 0);
       const percentage = Math.min((totalSpent / limit) * 100, 100);
@@ -399,8 +483,20 @@ export default function DashboardScreen() {
       Animated.spring(habitScale, { toValue: 1, friction: 5, useNativeDriver: true })
     ]).start();
 
+    const today = getTodayString();
     const updated = habits.map(h => {
-      if (h.id === id) return { ...h, completed: !h.completed, count: h.completed ? Math.max(0, h.count - 1) : h.count + 1 };
+      if (h.id === id) {
+        const isCompletingToday = !h.completed && !isToday(h.lastCompletedDate);
+        
+        return {
+          ...h,
+          completed: !h.completed,
+          // Increment streak only when completing for the first time today
+          count: isCompletingToday ? h.count + 1 : h.count,
+          // Set lastCompletedDate to today when marking as complete
+          lastCompletedDate: !h.completed ? today : h.lastCompletedDate
+        };
+      }
       return h;
     });
     setHabits(updated);
@@ -463,9 +559,6 @@ export default function DashboardScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
       >
 
         {renderAnimatedSection(0, (
@@ -486,9 +579,7 @@ export default function DashboardScreen() {
                 >
                   <Ionicons name={isDark ? "sunny" : "moon"} size={22} color={colors.primary} />
                 </Pressable>
-                <View style={styles.headerBtn}>
-                  <Ionicons name="notifications-outline" size={22} color={colors.primary} />
-                </View>
+                
               </View>
             </View>
 
@@ -570,8 +661,7 @@ export default function DashboardScreen() {
         {renderAnimatedSection(3, (
           <Pressable
             style={({ pressed }) => [styles.weatherCard, { opacity: pressed ? 0.7 : 1 }]}
-            onLongPress={() => updateWeatherByLocation(true)}
-            delayLongPress={1000}
+            onPress={() => updateWeatherByLocation(true)}
           >
             <View style={styles.weatherContent}>
               {isWeatherLoading && !weather ? (

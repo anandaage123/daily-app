@@ -22,6 +22,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Typography, Shadows, Spacing } from '../theme/Theme';
+import { scaleFontSize } from '../utils/ResponsiveSize';
 import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
@@ -102,7 +103,7 @@ export default function BudgetScreen() {
     setAlertConfig(null);
   };
 
-  const currentBudgetLimit = budgets[`${selectedMonth}-${selectedYear}`] || 4500;
+  const currentBudgetLimit = budgets[`${selectedMonth}-${selectedYear}`] || 10000;
 
   const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
@@ -112,7 +113,7 @@ export default function BudgetScreen() {
       paddingBottom: 24,
     },
     headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    title: { ...Typography.header, fontSize: 32, color: colors.text },
+    title: { ...Typography.header, fontSize: scaleFontSize(32), color: colors.text },
     filterTrigger: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -123,7 +124,7 @@ export default function BudgetScreen() {
       ...Shadows.soft,
       gap: 8,
     },
-    filterText: { ...Typography.body, fontSize: 15, fontWeight: '700', color: colors.text },
+    filterText: { ...Typography.body, fontSize: scaleFontSize(15), fontWeight: '700', color: colors.text },
     
     summaryCard: {
       backgroundColor: colors.surface,
@@ -134,11 +135,11 @@ export default function BudgetScreen() {
       overflow: 'hidden',
     },
     summaryLabel: { ...Typography.caption, color: colors.textVariant, fontWeight: '700', letterSpacing: 1, marginBottom: 8 },
-    balanceText: { ...Typography.header, fontSize: 42, color: colors.text, marginBottom: 20 },
+    balanceText: { ...Typography.header, fontSize: scaleFontSize(42), color: colors.text, marginBottom: 20 },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.background, paddingTop: 20 },
     statItem: { flex: 1, alignItems: 'center' },
     statLabel: { ...Typography.caption, color: colors.textVariant, marginBottom: 4 },
-    statValue: { ...Typography.title, fontSize: 18, fontWeight: '800' },
+    statValue: { ...Typography.title, fontSize: scaleFontSize(18), fontWeight: '800' },
     divider: { width: 1, height: '100%', backgroundColor: colors.background, marginHorizontal: 12 },
 
     sectionHeader: {
@@ -167,9 +168,9 @@ export default function BudgetScreen() {
       marginRight: 16,
     },
     txInfo: { flex: 1 },
-    txCategory: { ...Typography.title, fontSize: 16, color: colors.text },
+    txCategory: { ...Typography.title, fontSize: scaleFontSize(16), color: colors.text },
     txComment: { ...Typography.caption, color: colors.textVariant, marginTop: 2 },
-    txAmount: { ...Typography.title, fontSize: 17, fontWeight: '800' },
+    txAmount: { ...Typography.title, fontSize: scaleFontSize(17), fontWeight: '800' },
 
     fab: {
       position: 'absolute',
@@ -192,7 +193,7 @@ export default function BudgetScreen() {
       paddingBottom: Platform.OS === 'ios' ? 44 : 32,
     },
     sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
-    sheetTitle: { ...Typography.header, fontSize: 24, color: colors.text },
+    sheetTitle: { ...Typography.header, fontSize: scaleFontSize(24), color: colors.text },
     
     typeToggle: { flexDirection: 'row', backgroundColor: colors.background, padding: 4, borderRadius: 16, marginBottom: 28 },
     typeBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12 },
@@ -203,7 +204,7 @@ export default function BudgetScreen() {
     inputLabel: { ...Typography.caption, fontWeight: '800', color: colors.textVariant, marginBottom: 12, letterSpacing: 1 },
     amountInput: {
       ...Typography.header,
-      fontSize: 48,
+      fontSize: scaleFontSize(48),
       color: colors.text,
       textAlign: 'center',
       marginBottom: 28,
@@ -228,7 +229,7 @@ export default function BudgetScreen() {
       marginBottom: 6,
     },
     catIconBoxActive: { backgroundColor: colors.primary },
-    catName: { ...Typography.caption, fontSize: 11, fontWeight: '700', textAlign: 'center' },
+    catName: { ...Typography.caption, fontSize: scaleFontSize(11), fontWeight: '700', textAlign: 'center' },
     errorText: { ...Typography.caption, color: colors.error, marginTop: 8, textAlign: 'center' },
 
     submitBtn: {
@@ -238,10 +239,10 @@ export default function BudgetScreen() {
       alignItems: 'center',
       ...Shadows.soft,
     },
-    submitBtnText: { color: '#FFF', fontWeight: '800', fontSize: 17 },
+    submitBtnText: { color: '#FFF', fontWeight: '800', fontSize: scaleFontSize(17) },
     inputGroup: { marginBottom: 28 },
     amountInputRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 28 },
-    currency: { ...Typography.header, fontSize: 48, color: colors.textVariant, marginRight: 8 },
+    currency: { ...Typography.header, fontSize: scaleFontSize(48), color: colors.textVariant, marginRight: 8 },
     monthCard: {
       width: '30%',
       aspectRatio: 1,
@@ -660,7 +661,7 @@ export default function BudgetScreen() {
             <View style={styles.amountInputRow}>
               <Text style={styles.currency}>₹</Text>
               <TextInput
-                style={[styles.amountInput, { fontSize: 48 }]}
+                style={[styles.amountInput, { fontSize: scaleFontSize(48) }]}
                 defaultValue={currentBudgetLimit.toString()}
                 keyboardType="numeric"
                 onChangeText={(text) => updateBudgetLimit(parseFloat(text) || 0)}
@@ -682,11 +683,11 @@ export default function BudgetScreen() {
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
             <View style={{ backgroundColor: colors.surface, borderRadius: 20, padding: 24, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, maxWidth: '90%' }}>
               {/* Title */}
-              <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 8 }}>
+              <Text style={{ fontSize: scaleFontSize(18), fontWeight: '800', color: colors.text, marginBottom: 8 }}>
                 {alertConfig.title}
               </Text>
               {/* Message */}
-              <Text style={{ fontSize: 15, color: colors.textVariant, lineHeight: 22, marginBottom: 24 }}>
+              <Text style={{ fontSize: scaleFontSize(15), color: colors.textVariant, lineHeight: 22, marginBottom: 24 }}>
                 {alertConfig.message}
               </Text>
               {/* Buttons */}
@@ -707,7 +708,7 @@ export default function BudgetScreen() {
                       closeAlert();
                     }}
                   >
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: btn.destructive || (btn.text !== 'OK' && btn.text !== 'Cancel') ? '#FFF' : colors.text }}>
+                    <Text style={{ fontSize: scaleFontSize(15), fontWeight: '700', color: btn.destructive || (btn.text !== 'OK' && btn.text !== 'Cancel') ? '#FFF' : colors.text }}>
                       {btn.text}
                     </Text>
                   </TouchableOpacity>

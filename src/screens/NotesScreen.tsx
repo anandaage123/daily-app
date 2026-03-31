@@ -22,6 +22,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { cacheDirectory, writeAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
+import { scaleFontSize } from '../utils/ResponsiveSize';
 import { useTheme } from '../context/ThemeContext';
 import { JSX } from 'react/jsx-runtime';
 
@@ -279,7 +280,7 @@ export default function NotesScreen() {
       content: currentNote.content || '',
       date: formatDate(ts),
       dateRaw: currentNote.dateRaw || ts,
-      mood: currentNote.mood || '😌',
+      mood: currentNote.mood || '😐',
       category: currentNote.category || 'Personal',
       isPinned: currentNote.isPinned || false,
     };
@@ -371,73 +372,73 @@ export default function NotesScreen() {
     // layout
     mainContainer: { flex: 1, backgroundColor: colors.background },
     appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
-    logoText: { fontSize: 30, fontWeight: '800', color: colors.text, letterSpacing: -0.5 },
+    logoText: { fontSize: scaleFontSize(30), fontWeight: '800', color: colors.text, letterSpacing: -0.5 },
     headerIcons: { flexDirection: 'row', gap: 8 },
     headerIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: surfaceVariant, justifyContent: 'center', alignItems: 'center' },
     // stats
     statsRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 16 },
     statCard: { flex: 1, backgroundColor: surfaceVariant, borderRadius: 16, padding: 14 },
-    statLabel: { fontSize: 11, color: secondaryText, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-    statVal: { fontSize: 26, fontWeight: '800', color: colors.text, marginTop: 2 },
+    statLabel: { fontSize: scaleFontSize(11), color: secondaryText, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+    statVal: { fontSize: scaleFontSize(26), fontWeight: '800', color: colors.text, marginTop: 2 },
     // search
     searchBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 14, backgroundColor: surfaceVariant, borderRadius: 14, paddingHorizontal: 14, height: 44, gap: 8 },
-    searchInput: { flex: 1, fontSize: 15, color: colors.text },
+    searchInput: { flex: 1, fontSize: scaleFontSize(15), color: colors.text },
     // chips
     filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: surfaceVariant, borderWidth: 1.5, borderColor: 'transparent', marginRight: 8, flexDirection: 'row', alignItems: 'center', gap: 5 },
-    filterChipText: { fontSize: 13, fontWeight: '700', color: secondaryText },
+    filterChipText: { fontSize: scaleFontSize(13), fontWeight: '700', color: secondaryText },
     // date badge
     dateBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: surfaceVariant, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, gap: 5 },
-    dateBadgeText: { fontSize: 12, fontWeight: '700', color: secondaryText },
+    dateBadgeText: { fontSize: scaleFontSize(12), fontWeight: '700', color: secondaryText },
     // cards
     noteCard: { backgroundColor: cardBg, borderRadius: 20, padding: 18, marginHorizontal: 20, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: isDark ? 0 : 0.07, shadowRadius: 10 },
-    noteTitle: { fontSize: 17, fontWeight: '700', color: colors.text, flex: 1 },
-    noteSnippet: { fontSize: 14, color: secondaryText, lineHeight: 20, marginTop: 4 },
-    noteMeta: { fontSize: 11, fontWeight: '700', marginTop: 10, letterSpacing: 0.3 },
+    noteTitle: { fontSize: scaleFontSize(17), fontWeight: '700', color: colors.text, flex: 1 },
+    noteSnippet: { fontSize: scaleFontSize(14), color: secondaryText, lineHeight: 20, marginTop: 4 },
+    noteMeta: { fontSize: scaleFontSize(11), fontWeight: '700', marginTop: 10, letterSpacing: 0.3 },
     gridCard: { backgroundColor: cardBg, borderRadius: 20, padding: 16, margin: 6, flex: 1, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: isDark ? 0 : 0.07, shadowRadius: 10 },
     compactCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: outlineColor, gap: 12 },
     compactDot: { width: 10, height: 10, borderRadius: 5 },
     bentoContainer: { paddingHorizontal: 20, gap: 10 },
     bentoRow: { flexDirection: 'row', gap: 10 },
     bentoCard: { backgroundColor: cardBg, borderRadius: 20, padding: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: isDark ? 0 : 0.07, shadowRadius: 10 },
-    sectionLabel: { fontSize: 11, fontWeight: '800', color: secondaryText, textTransform: 'uppercase', letterSpacing: 1, marginHorizontal: 20, marginBottom: 8, marginTop: 4 },
+    sectionLabel: { fontSize: scaleFontSize(11), fontWeight: '800', color: secondaryText, textTransform: 'uppercase', letterSpacing: 1, marginHorizontal: 20, marginBottom: 8, marginTop: 4 },
     // auth
     authContainer: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 30 },
     authInner: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     hintBadge: { position: 'absolute', top: 16, right: 16, backgroundColor: colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, zIndex: 999 },
-    hintText: { color: '#FFF', fontWeight: '800', fontSize: 13 },
-    authHeading: { fontSize: 26, fontWeight: '800', textAlign: 'center', color: colors.text, marginBottom: 8 },
-    authSubtext: { fontSize: 15, color: secondaryText, textAlign: 'center', marginBottom: 20 },
+    hintText: { color: '#FFF', fontWeight: '800', fontSize: scaleFontSize(13) },
+    authHeading: { fontSize: scaleFontSize(26), fontWeight: '800', textAlign: 'center', color: colors.text, marginBottom: 8 },
+    authSubtext: { fontSize: scaleFontSize(15), color: secondaryText, textAlign: 'center', marginBottom: 20 },
     pinDisplay: { flexDirection: 'row', gap: 12, justifyContent: 'center', marginVertical: 40 },
     pinDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2.5, borderColor: colors.primary, backgroundColor: 'transparent' },
     pinDotActive: { backgroundColor: colors.primary },
     keypad: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 30, justifyContent: 'space-between', width: '100%' },
     keypadBtn: { width: 80, height: 80, borderRadius: 16, backgroundColor: surfaceVariant, justifyContent: 'center', alignItems: 'center' },
-    keypadText: { fontSize: 28, fontWeight: '600', color: colors.text },
+    keypadText: { fontSize: scaleFontSize(28), fontWeight: '600', color: colors.text },
     // editor
     editorHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8, gap: 10 },
-    titleInput: { fontSize: 28, fontWeight: '800', paddingHorizontal: 20, color: colors.text, marginBottom: 8 },
-    contentInput: { fontSize: 17, paddingHorizontal: 20, color: colors.text, lineHeight: 26, minHeight: 280, textAlignVertical: 'top' },
+    titleInput: { fontSize: scaleFontSize(28), fontWeight: '800', paddingHorizontal: 20, color: colors.text, marginBottom: 8 },
+    contentInput: { fontSize: scaleFontSize(17), paddingHorizontal: 20, color: colors.text, lineHeight: 26, minHeight: 280, textAlignVertical: 'top' },
     bottomActions: { flexDirection: 'row', padding: 16, paddingBottom: Platform.OS === 'ios' ? 32 : 16, backgroundColor: cardBg, borderTopWidth: 1, borderTopColor: outlineColor, gap: 10 },
     actionBtn: { flex: 1, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
     cancelBtn: { backgroundColor: surfaceVariant },
     saveBtn: { backgroundColor: colors.primary },
-    btnText: { fontSize: 15, fontWeight: '700' },
+    btnText: { fontSize: scaleFontSize(15), fontWeight: '700' },
     fabMain: { position: 'absolute', bottom: 28, right: 20, width: 60, height: 60, borderRadius: 18, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 10, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12 },
     // modals
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
     modalContent: { backgroundColor: cardBg, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 22, paddingBottom: 36 },
-    modalTitle: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 18 },
+    modalTitle: { fontSize: scaleFontSize(18), fontWeight: '800', color: colors.text, marginBottom: 18 },
     actionRow: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: surfaceVariant, borderRadius: 14, marginBottom: 10 },
-    actionText: { fontSize: 15, fontWeight: '700', color: colors.text, marginLeft: 14 },
+    actionText: { fontSize: scaleFontSize(15), fontWeight: '700', color: colors.text, marginLeft: 14 },
     // category mgr
     catRow: { flexDirection: 'row', alignItems: 'center', padding: 14, backgroundColor: surfaceVariant, borderRadius: 14, marginBottom: 10 },
     catColorDot: { width: 22, height: 22, borderRadius: 11, marginRight: 12 },
     // calendar
     calNavRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-    calMonthText: { fontSize: 16, fontWeight: '800', color: colors.text },
+    calMonthText: { fontSize: scaleFontSize(16), fontWeight: '800', color: colors.text },
     calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
     calCell: { width: (width - 80) / 7, height: 38, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
-    calDayHeader: { fontSize: 11, fontWeight: '700', color: secondaryText },
+    calDayHeader: { fontSize: scaleFontSize(11), fontWeight: '700', color: secondaryText },
     calDayText: { fontSize: 13, color: colors.text },
   });
 
@@ -956,7 +957,7 @@ export default function NotesScreen() {
       {/* FAB */}
       <TouchableOpacity
         style={s.fabMain}
-        onPress={() => { setCurrentNote({ category: categories[0]?.name || 'Personal', mood: '😌' }); setIsEditing(true); }}
+        onPress={() => { setCurrentNote({ category: categories[0]?.name || 'Personal', mood: '😐' }); setIsEditing(true); }}
       >
         <Ionicons name="add" size={30} color="#FFF" />
       </TouchableOpacity>

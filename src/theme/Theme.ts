@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { scaleFontSize } from '../utils/ResponsiveSize';
 
 export const MM_Colors = {
   primary: '#4052B6', // Royal Muse Blue
@@ -64,21 +65,21 @@ const getFontFamily = (weight: string) => {
 export const Typography = {
   header: {
     fontFamily: getFontFamily('700'),
-    fontSize: 34, // iOS Large Title
+    fontSize: scaleFontSize(34), // iOS Large Title - responsive
     fontWeight: '700' as const,
     color: MM_Colors.text,
     letterSpacing: 0.37,
   },
   title: {
     fontFamily: getFontFamily('600'),
-    fontSize: 20, // iOS Title 3
+    fontSize: scaleFontSize(20), // iOS Title 3 - responsive
     fontWeight: '600' as const,
     color: MM_Colors.text,
     letterSpacing: -0.45,
   },
   body: {
     fontFamily: getFontFamily('400'),
-    fontSize: 17, // iOS Body
+    fontSize: scaleFontSize(17), // iOS Body - responsive
     fontWeight: '400' as const,
     color: MM_Colors.text,
     letterSpacing: -0.41,
@@ -86,7 +87,7 @@ export const Typography = {
   },
   caption: {
     fontFamily: getFontFamily('400'),
-    fontSize: 12, // iOS Caption 2
+    fontSize: scaleFontSize(12), // iOS Caption 2 - responsive
     fontWeight: '400' as const,
     color: MM_Colors.textVariant,
     letterSpacing: 0,

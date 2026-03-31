@@ -29,7 +29,8 @@
     "plugins": [
       "expo-audio",
       "expo-video",
-      "expo-sharing"
+      "expo-sharing",
+      "@react-native-community/datetimepicker"
     ]
   }
 }
