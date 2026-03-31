@@ -69,6 +69,7 @@ export default function BudgetScreen() {
   const [isAdding, setIsAdding] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [tempBudgetLimit, setTempBudgetLimit] = useState('');
 
   // Filters
   const [selectedMonth, setSelectedMonth] = useState(MONTHS[new Date().getMonth()]);
@@ -456,7 +457,10 @@ export default function BudgetScreen() {
               <Text style={[styles.statValue, { color: colors.error }]}>-₹{totals.expense.toFixed(0)}</Text>
             </View>
             <View style={styles.divider} />
-            <TouchableOpacity style={styles.statItem} onPress={() => setIsSettingsOpen(true)}>
+            <TouchableOpacity style={styles.statItem} onPress={() => {
+              setTempBudgetLimit(Math.floor(currentBudgetLimit).toString());
+              setIsSettingsOpen(true);
+            }}>
               <Text style={styles.statLabel}>Limit</Text>
               <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
                 <Text style={styles.statValue}>₹{currentBudgetLimit.toFixed(0)}</Text>
@@ -654,27 +658,36 @@ export default function BudgetScreen() {
 
       {/* Budget Settings Modal */}
       <Modal visible={isSettingsOpen} transparent animationType="fade">
-        <View style={[styles.modalOverlay, { justifyContent: 'center', padding: 24 }]}>
-          <View style={[styles.sheet, { borderRadius: 28 }]}>
-            <Text style={styles.sheetTitle}>Set Budget Limit</Text>
-            <Text style={[styles.txComment, { marginBottom: 20 }]}>For {selectedMonth} {selectedYear}</Text>
-            <View style={styles.amountInputRow}>
-              <Text style={styles.currency}>₹</Text>
-              <TextInput
-                style={[styles.amountInput, { fontSize: scaleFontSize(48) }]}
-                defaultValue={currentBudgetLimit.toString()}
-                keyboardType="numeric"
-                onChangeText={(text) => updateBudgetLimit(parseFloat(text) || 0)}
-                maxLength={10}
-                autoFocus
-                caretHidden={true}
-              />
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={[styles.modalOverlay, { justifyContent: 'center', padding: 24 }]}>
+            <View style={[styles.sheet, { borderRadius: 28 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <Text style={styles.sheetTitle}>Set Budget Limit</Text>
+                <TouchableOpacity onPress={() => setIsSettingsOpen(false)}>
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.txComment, { marginBottom: 20 }]}>For {selectedMonth} {selectedYear}</Text>
+              <View style={styles.amountInputRow}>
+                <Text style={styles.currency}>₹</Text>
+                <TextInput
+                  style={[styles.amountInput, { fontSize: scaleFontSize(48) }]}
+                  value={tempBudgetLimit}
+                  keyboardType="numeric"
+                  onChangeText={setTempBudgetLimit}
+                  maxLength={10}
+                  autoFocus
+                />
+              </View>
+              <TouchableOpacity style={styles.submitBtn} onPress={() => {
+                updateBudgetLimit(parseFloat(tempBudgetLimit) || 0);
+                setIsSettingsOpen(false);
+              }}>
+                <Text style={styles.submitBtnText}>Save Limit</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.submitBtn} onPress={() => setIsSettingsOpen(false)}>
-              <Text style={styles.submitBtnText}>Close</Text>
-            </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ═══ Custom Alert Modal ═══ */}

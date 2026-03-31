@@ -3,12 +3,6 @@
  * Full-featured todo list with SAF file persistence (survives uninstall),
  * animations, edit, due dates, subtasks, tags, swipe-to-delete, undo,
  * notifications, export, archive, search & filter.
- *
- * New dependencies to install:
- *   npx expo install expo-file-system expo-haptics expo-notifications expo-clipboard
- *   npx expo install react-native-gesture-handler react-native-reanimated
- *   npx expo install @react-native-community/datetimepicker
- *   npm install react-native-swipeable  (or use react-native-gesture-handler Swipeable)
  */
 
 import React, {
@@ -40,11 +34,12 @@ const { width } = Dimensions.get('window');
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false,
+    shouldShowBanner: true, shouldShowList: true,
   }),
 });
 
 async function scheduleDueNotification(id: string, text: string, dueDate: number) {
-  await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+  await Notifications.cancelScheduledNotificationAsync(id).catch(() => { });
   const trigger = new Date(dueDate);
   if (trigger <= new Date()) return;
   await Notifications.scheduleNotificationAsync({
@@ -58,7 +53,7 @@ async function scheduleDueNotification(id: string, text: string, dueDate: number
 }
 
 async function cancelNotification(id: string) {
-  await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+  await Notifications.cancelScheduledNotificationAsync(id).catch(() => { });
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -86,67 +81,25 @@ interface Todo {
   completedAt?: number;
 }
 
-// ─── SAF Storage (survives uninstall) ─────────────────────────────────────────
+// ─── AsyncStorage ─────────────────────────────────────────────────────────────
 
-const SAF_FOLDER_KEY = '@todos_saf_folder_uri_v2';
-const TODO_FILENAME  = 'my_todos.json';
+const TODOS_KEY = '@todos_v3';
 
-async function getSafFolder(): Promise<string | null> {
-  return AsyncStorage.getItem(SAF_FOLDER_KEY);
-}
-
-async function requestSafFolder(): Promise<string | null> {
+async function loadTodosFromStorage(): Promise<Todo[]> {
   try {
-    const perm = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-    if (perm.granted) {
-      await AsyncStorage.setItem(SAF_FOLDER_KEY, perm.directoryUri);
-      return perm.directoryUri;
-    }
-  } catch {}
-  return null;
-}
-
-async function loadTodosFromFile(): Promise<Todo[]> {
-  try {
-    let folderUri = await getSafFolder();
-    if (!folderUri) folderUri = await requestSafFolder();
-    if (!folderUri) return [];
-    const files = await FileSystem.StorageAccessFramework.readDirectoryAsync(folderUri);
-    const existing = files.find(f => f.includes(TODO_FILENAME));
-    if (!existing) return [];
-    const content = await FileSystem.readAsStringAsync(existing);
-    const parsed: Todo[] = JSON.parse(content);
-    return parsed.map(t => ({ subtasks: [], archived: false, ...t }));
+    const data = await AsyncStorage.getItem(TODOS_KEY);
+    if (!data) return [];
+    const parsed: Todo[] = JSON.parse(data);
+    return parsed.map(t => ({ ...t, subtasks: t.subtasks || [], archived: t.archived || false }));
   } catch (e) {
     console.error('Load todos error:', e);
     return [];
   }
 }
 
-async function saveTodosToFile(todos: Todo[]): Promise<void> {
+async function saveTodosToStorage(todos: Todo[]): Promise<void> {
   try {
-    let folderUri = await getSafFolder();
-    if (!folderUri) folderUri = await requestSafFolder();
-    if (!folderUri) return;
-    const files = await FileSystem.StorageAccessFramework.readDirectoryAsync(folderUri);
-    const existing = files.find(f => f.includes(TODO_FILENAME));
-    let data = JSON.stringify(todos);
-    if (existing) {
-      const oldContent = await FileSystem.readAsStringAsync(existing).catch(() => '');
-      if (data.length < oldContent.length) {
-        data = data.padEnd(oldContent.length, ' ');
-      }
-      await FileSystem.writeAsStringAsync(
-        existing, data, { encoding: FileSystem.EncodingType.UTF8 }
-      );
-    } else {
-      const newUri = await FileSystem.StorageAccessFramework.createFileAsync(
-        folderUri, TODO_FILENAME, 'application/json'
-      );
-      await FileSystem.writeAsStringAsync(
-        newUri, data, { encoding: FileSystem.EncodingType.UTF8 }
-      );
-    }
+    await AsyncStorage.setItem(TODOS_KEY, JSON.stringify(todos));
   } catch (e) {
     console.error('Save todos error:', e);
   }
@@ -158,8 +111,8 @@ const PRIORITY_CONFIG: Record<Priority, {
   label: string; emoji: string; gradient: readonly [string, string];
 }> = {
   high: { label: 'HIGH', emoji: '🔥', gradient: ['#FF6B6B', '#FF4757'] },
-  med:  { label: 'MED',  emoji: '⚡', gradient: ['#FFA93A', '#FF8C00'] },
-  low:  { label: 'LOW',  emoji: '🌿', gradient: ['#5EE7A0', '#1DB954'] },
+  med: { label: 'MED', emoji: '⚡', gradient: ['#FFA93A', '#FF8C00'] },
+  low: { label: 'LOW', emoji: '🌿', gradient: ['#5EE7A0', '#1DB954'] },
 };
 
 const TAG_COLORS: Record<Tag, string> = {
@@ -177,10 +130,10 @@ function genId(): string {
 
 interface TodoItemProps {
   item: Todo;
-  onToggle:  (id: string) => void;
+  onToggle: (id: string) => void;
   onToggleSubtask?: (todoId: string, subId: string) => void;
-  onDelete:  (id: string) => void;
-  onEdit:    (todo: Todo) => void;
+  onDelete: (id: string) => void;
+  onEdit: (todo: Todo) => void;
   onArchive: (id: string) => void;
   colors: any;
   isDark: boolean;
@@ -192,13 +145,13 @@ const TodoItem = React.memo(({
   item, onToggle, onToggleSubtask, onDelete, onEdit, onArchive, colors, isDark, index, entryAnim,
 }: TodoItemProps) => {
   const [expanded, setExpanded] = useState(false);
-  const checkAnim  = useRef(new Animated.Value(item.completed ? 1 : 0)).current;
-  const pressAnim  = useRef(new Animated.Value(1)).current;
-  const sparkAnim  = useRef(new Animated.Value(0)).current;
-  const swipeRef   = useRef<Swipeable>(null);
+  const checkAnim = useRef(new Animated.Value(item.completed ? 1 : 0)).current;
+  const pressAnim = useRef(new Animated.Value(1)).current;
+  const sparkAnim = useRef(new Animated.Value(0)).current;
+  const swipeRef = useRef<Swipeable>(null);
 
   const slideIn = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [50 + index * 10, 0] });
-  const fadeIn  = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  const fadeIn = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
 
   useEffect(() => {
     Animated.spring(checkAnim, {
@@ -216,7 +169,7 @@ const TodoItem = React.memo(({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Animated.sequence([
       Animated.timing(pressAnim, { toValue: 0.97, duration: 70, useNativeDriver: true }),
-      Animated.timing(pressAnim, { toValue: 1,    duration: 100, useNativeDriver: true }),
+      Animated.timing(pressAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
     ]).start(() => onToggle(item.id));
   };
 
@@ -327,21 +280,21 @@ const TodoItem = React.memo(({
               {item.subtasks.length > 0 && expanded && (
                 <View style={{ marginTop: 14, paddingLeft: 4, gap: 12 }}>
                   {item.subtasks.map(st => (
-                    <TouchableOpacity 
-                      key={st.id} 
-                      style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }} 
+                    <TouchableOpacity
+                      key={st.id}
+                      style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}
                       onPress={() => onToggleSubtask?.(item.id, st.id)}
                       hitSlop={12}
                     >
-                      <Ionicons 
-                        name={st.completed ? 'checkbox' : 'square-outline'} 
-                        size={22} 
-                        color={st.completed ? colors.primary : colors.textVariant + '80'} 
+                      <Ionicons
+                        name={st.completed ? 'checkbox' : 'square-outline'}
+                        size={22}
+                        color={st.completed ? colors.primary : colors.textVariant + '80'}
                       />
-                      <Text style={{ 
-                        marginLeft: 12, 
+                      <Text style={{
+                        marginLeft: 12,
                         flex: 1,
-                        fontSize: scaleFontSize(15), 
+                        fontSize: scaleFontSize(15),
                         color: st.completed ? colors.textVariant : colors.text,
                         textDecorationLine: st.completed ? 'line-through' : 'none',
                         opacity: st.completed ? 0.5 : 1
@@ -366,26 +319,26 @@ const TodoItem = React.memo(({
 });
 
 const iStyles = StyleSheet.create({
-  card:       { flexDirection: 'row', alignItems: 'flex-start', padding: 14, borderRadius: 18, marginBottom: 10, borderLeftWidth: 4, ...Shadows.soft },
-  checkbox:   { width: 22, height: 22, borderRadius: 6, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginRight: 12, marginTop: 2 },
-  body:       { flex: 1 },
-  text:       { fontSize: scaleFontSize(15), fontWeight: '600', lineHeight: 22, marginBottom: 6 },
-  textDone:   { textDecorationLine: 'line-through', opacity: 0.45 },
-  meta:       { flexDirection: 'row', flexWrap: 'wrap', gap: 5, alignItems: 'center' },
-  priPill:    { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 },
-  priTxt:     { fontSize: scaleFontSize(9), fontWeight: '800', color: '#FFF', letterSpacing: 0.3 },
-  tagPill:    { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7, borderWidth: 1 },
-  tagTxt:     { fontSize: scaleFontSize(9), fontWeight: '700' },
-  duePill:    { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 7 },
-  dueTxt:     { fontSize: scaleFontSize(9), fontWeight: '700' },
-  badge:      { width: 17, height: 17, borderRadius: 5, justifyContent: 'center', alignItems: 'center' },
+  card: { flexDirection: 'row', alignItems: 'flex-start', padding: 14, borderRadius: 18, marginBottom: 10, borderLeftWidth: 4, ...Shadows.soft },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginRight: 12, marginTop: 2 },
+  body: { flex: 1 },
+  text: { fontSize: scaleFontSize(15), fontWeight: '600', lineHeight: 22, marginBottom: 6 },
+  textDone: { textDecorationLine: 'line-through', opacity: 0.45 },
+  meta: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, alignItems: 'center' },
+  priPill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 },
+  priTxt: { fontSize: scaleFontSize(9), fontWeight: '800', color: '#FFF', letterSpacing: 0.3 },
+  tagPill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7, borderWidth: 1 },
+  tagTxt: { fontSize: scaleFontSize(9), fontWeight: '700' },
+  duePill: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 7 },
+  dueTxt: { fontSize: scaleFontSize(9), fontWeight: '700' },
+  badge: { width: 17, height: 17, borderRadius: 5, justifyContent: 'center', alignItems: 'center' },
   subtaskCnt: { fontSize: scaleFontSize(8), fontWeight: '800' },
-  subBar:     { height: 3, borderRadius: 2, marginTop: 7, overflow: 'hidden' },
-  subFill:    { height: '100%', borderRadius: 2 },
+  subBar: { height: 3, borderRadius: 2, marginTop: 7, overflow: 'hidden' },
+  subFill: { height: '100%', borderRadius: 2 },
   swipeRight: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  swipeLeft:  { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  swipeBtn:   { justifyContent: 'center', alignItems: 'center', width: 70, alignSelf: 'stretch', borderRadius: 14, gap: 3, marginHorizontal: 3 },
-  swipeTxt:   { color: '#FFF', fontSize: scaleFontSize(10), fontWeight: '700' },
+  swipeLeft: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  swipeBtn: { justifyContent: 'center', alignItems: 'center', width: 70, alignSelf: 'stretch', borderRadius: 14, gap: 3, marginHorizontal: 3 },
+  swipeTxt: { color: '#FFF', fontSize: scaleFontSize(10), fontWeight: '700' },
 });
 
 // ─── Undo Toast ───────────────────────────────────────────────────────────────
@@ -401,10 +354,12 @@ const Toast = ({ message, onUndo, colors }: { message: string; onUndo?: () => vo
   </View>
 );
 const tStyles = StyleSheet.create({
-  toast: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 18, paddingVertical: 12, borderRadius: 16, marginHorizontal: 20, ...Shadows.soft },
-  msg:   { fontSize: scaleFontSize(13), fontWeight: '600', flex: 1 },
-  undo:  { fontWeight: '800', fontSize: scaleFontSize(13), marginLeft: 12 },
+  toast: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 18, paddingVertical: 12, borderRadius: 16, marginHorizontal: 20, ...Shadows.soft
+  },
+  msg: { fontSize: scaleFontSize(13), fontWeight: '600', flex: 1 },
+  undo: { fontWeight: '800', fontSize: scaleFontSize(13), marginLeft: 12 },
 });
 
 // ─── Add/Edit Modal ───────────────────────────────────────────────────────────
@@ -421,12 +376,12 @@ interface ModalProps {
 
 function TodoModal({ visible, initial, onClose, onSave, onSaveAndNext, colors, isDark }: ModalProps) {
   const isEdit = !!initial;
-  const [text,           setText]           = useState('');
-  const [priority,       setPriority]       = useState<Priority>('med');
-  const [dueDate,        setDueDate]        = useState<Date | undefined>(undefined);
-  const [showPicker,     setShowPicker]     = useState(false);
-  const [subtasks,       setSubtasks]       = useState<Subtask[]>([]);
-  const [subInput,       setSubInput]       = useState('');
+  const [text, setText] = useState('');
+  const [priority, setPriority] = useState<Priority>('med');
+  const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [showPicker, setShowPicker] = useState(false);
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [subInput, setSubInput] = useState('');
   const slideAnim = useRef(new Animated.Value(600)).current;
 
   useEffect(() => {
@@ -465,146 +420,146 @@ function TodoModal({ visible, initial, onClose, onSave, onSaveAndNext, colors, i
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={mStyles.overlay}>
         <Pressable style={{ flex: 1 }} onPress={onClose} />
         <Animated.View style={[mStyles.sheet, { backgroundColor: colors.surface, transform: [{ translateY: slideAnim }] }]}>
-            <View style={mStyles.handle} />
-            <View style={mStyles.hdr}>
-              <Text style={[mStyles.title, { color: colors.text }]}>{isEdit ? '✏️ Edit Todo' : '✦ New Todo'}</Text>
-              <TouchableOpacity onPress={onClose} style={[mStyles.closeBtn, { backgroundColor: colors.background }]}>
-                <Ionicons name="close" size={18} color={colors.textVariant} />
+          <View style={mStyles.handle} />
+          <View style={mStyles.hdr}>
+            <Text style={[mStyles.title, { color: colors.text }]}>{isEdit ? '✏️ Edit Todo' : '✦ New Todo'}</Text>
+            <TouchableOpacity onPress={onClose} style={[mStyles.closeBtn, { backgroundColor: colors.background }]}>
+              <Ionicons name="close" size={18} color={colors.textVariant} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <TextInput
+              style={[mStyles.input, { backgroundColor: colors.background, color: colors.text, marginBottom: 20 }]}
+              placeholder="What needs to be done?"
+              placeholderTextColor={colors.textVariant + '55'}
+              value={text} onChangeText={setText} autoFocus={!isEdit} returnKeyType="done" maxLength={200}
+            />
+
+            {/* Priority */}
+            <Text style={[mStyles.lbl, { color: colors.textVariant }]}>PRIORITY</Text>
+            <View style={mStyles.priRow}>
+              {(['low', 'med', 'high'] as Priority[]).map(p => {
+                const c = PRIORITY_CONFIG[p]; const active = priority === p;
+                return (
+                  <TouchableOpacity key={p}
+                    onPress={() => { Haptics.selectionAsync(); setPriority(p); }}
+                    style={[mStyles.priBtn, { borderColor: active ? c.gradient[0] : colors.background, backgroundColor: active ? c.gradient[0] + '18' : colors.background }]}
+                  >
+                    {active
+                      ? <LinearGradient colors={c.gradient} style={mStyles.pDot} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
+                      : <View style={[mStyles.pDot, { backgroundColor: colors.surface }]} />}
+                    <Text style={[mStyles.priBtnTxt, { color: active ? c.gradient[0] : colors.textVariant }]}>{c.emoji} {c.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Due date */}
+            <Text style={[mStyles.lbl, { color: colors.textVariant }]}>DUE DATE</Text>
+            <View style={mStyles.dateRow}>
+              <TouchableOpacity onPress={() => setShowPicker(true)}
+                style={[mStyles.dateBtn, { backgroundColor: colors.background, borderColor: dueDate ? colors.primary : colors.background }]}
+              >
+                <Ionicons name="calendar-outline" size={15} color={dueDate ? colors.primary : colors.textVariant} />
+                <Text style={[mStyles.dateTxt, { color: dueDate ? colors.primary : colors.textVariant }]}>
+                  {dueDate ? dueDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'Set due date'}
+                </Text>
+              </TouchableOpacity>
+              {dueDate && (
+                <TouchableOpacity onPress={() => setDueDate(undefined)} style={[mStyles.dateClear, { backgroundColor: colors.background }]}>
+                  <Ionicons name="close" size={15} color={colors.textVariant} />
+                </TouchableOpacity>
+              )}
+            </View>
+            {showPicker && (
+              <DateTimePicker value={dueDate ?? new Date()} mode="date" minimumDate={new Date()}
+                onChange={(_, d) => { setShowPicker(false); if (d) setDueDate(d); }} />
+            )}
+
+            {/* Subtasks */}
+            <Text style={[mStyles.lbl, { color: colors.textVariant }]}>SUBTASKS</Text>
+            {subtasks.map(st => (
+              <View key={st.id} style={[mStyles.subRow, { backgroundColor: colors.background }]}>
+                <TouchableOpacity onPress={() => setSubtasks(s => s.map(x => x.id === st.id ? { ...x, completed: !x.completed } : x))}>
+                  <Ionicons name={st.completed ? 'checkbox' : 'square-outline'} size={17} color={st.completed ? colors.primary : colors.textVariant} />
+                </TouchableOpacity>
+                <Text style={[mStyles.subTxt, { color: colors.text }, st.completed && { textDecorationLine: 'line-through', opacity: 0.5 }]}>{st.text}</Text>
+                <TouchableOpacity onPress={() => setSubtasks(s => s.filter(x => x.id !== st.id))}>
+                  <Ionicons name="close-circle-outline" size={15} color={colors.textVariant} />
+                </TouchableOpacity>
+              </View>
+            ))}
+            <View style={mStyles.subInputRow}>
+              <TextInput
+                style={[mStyles.subInput, { backgroundColor: colors.background, color: colors.text, flex: 1 }]}
+                placeholder="Add subtask…" placeholderTextColor={colors.textVariant + '50'}
+                value={subInput} onChangeText={setSubInput}
+                onSubmitEditing={addSub} returnKeyType="done"
+              />
+              <TouchableOpacity onPress={addSub} style={[mStyles.subAddBtn, { backgroundColor: colors.primary + '20' }]}>
+                <Ionicons name="add" size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <TextInput
-                style={[mStyles.input, { backgroundColor: colors.background, color: colors.text, marginBottom: 20 }]}
-                placeholder="What needs to be done?"
-                placeholderTextColor={colors.textVariant + '55'}
-                value={text} onChangeText={setText} autoFocus={!isEdit} returnKeyType="done" maxLength={200}
-              />
-
-              {/* Priority */}
-              <Text style={[mStyles.lbl, { color: colors.textVariant }]}>PRIORITY</Text>
-              <View style={mStyles.priRow}>
-                {(['low', 'med', 'high'] as Priority[]).map(p => {
-                  const c = PRIORITY_CONFIG[p]; const active = priority === p;
-                  return (
-                    <TouchableOpacity key={p}
-                      onPress={() => { Haptics.selectionAsync(); setPriority(p); }}
-                      style={[mStyles.priBtn, { borderColor: active ? c.gradient[0] : colors.background, backgroundColor: active ? c.gradient[0] + '18' : colors.background }]}
-                    >
-                      {active
-                        ? <LinearGradient colors={c.gradient} style={mStyles.pDot} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
-                        : <View style={[mStyles.pDot, { backgroundColor: colors.surface }]} />}
-                      <Text style={[mStyles.priBtnTxt, { color: active ? c.gradient[0] : colors.textVariant }]}>{c.emoji} {c.label}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Due date */}
-              <Text style={[mStyles.lbl, { color: colors.textVariant }]}>DUE DATE</Text>
-              <View style={mStyles.dateRow}>
-                <TouchableOpacity onPress={() => setShowPicker(true)}
-                  style={[mStyles.dateBtn, { backgroundColor: colors.background, borderColor: dueDate ? colors.primary : colors.background }]}
-                >
-                  <Ionicons name="calendar-outline" size={15} color={dueDate ? colors.primary : colors.textVariant} />
-                  <Text style={[mStyles.dateTxt, { color: dueDate ? colors.primary : colors.textVariant }]}>
-                    {dueDate ? dueDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'Set due date'}
-                  </Text>
-                </TouchableOpacity>
-                {dueDate && (
-                  <TouchableOpacity onPress={() => setDueDate(undefined)} style={[mStyles.dateClear, { backgroundColor: colors.background }]}>
-                    <Ionicons name="close" size={15} color={colors.textVariant} />
-                  </TouchableOpacity>
-                )}
-              </View>
-              {showPicker && (
-                <DateTimePicker value={dueDate ?? new Date()} mode="date" minimumDate={new Date()}
-                  onChange={(_, d) => { setShowPicker(false); if (d) setDueDate(d); }} />
-              )}
-
-              {/* Subtasks */}
-              <Text style={[mStyles.lbl, { color: colors.textVariant }]}>SUBTASKS</Text>
-              {subtasks.map(st => (
-                <View key={st.id} style={[mStyles.subRow, { backgroundColor: colors.background }]}>
-                  <TouchableOpacity onPress={() => setSubtasks(s => s.map(x => x.id === st.id ? { ...x, completed: !x.completed } : x))}>
-                    <Ionicons name={st.completed ? 'checkbox' : 'square-outline'} size={17} color={st.completed ? colors.primary : colors.textVariant} />
-                  </TouchableOpacity>
-                  <Text style={[mStyles.subTxt, { color: colors.text }, st.completed && { textDecorationLine: 'line-through', opacity: 0.5 }]}>{st.text}</Text>
-                  <TouchableOpacity onPress={() => setSubtasks(s => s.filter(x => x.id !== st.id))}>
-                    <Ionicons name="close-circle-outline" size={15} color={colors.textVariant} />
-                  </TouchableOpacity>
+            {/* Save & Add Next — only in add mode */}
+            {!isEdit && (
+              <TouchableOpacity
+                onPress={() => canSave && onSaveAndNext(build())}
+                activeOpacity={canSave ? 0.8 : 1}
+                style={{ marginBottom: 10, marginTop: 16, opacity: canSave ? 1 : 0.35 }}
+              >
+                <View style={[mStyles.nextBtn, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '45' }]}>
+                  <Ionicons name="add-circle-outline" size={17} color={colors.primary} style={{ marginRight: 7 }} />
+                  <Text style={[mStyles.nextTxt, { color: colors.primary }]}>Save & Add Next</Text>
                 </View>
-              ))}
-              <View style={mStyles.subInputRow}>
-                <TextInput
-                  style={[mStyles.subInput, { backgroundColor: colors.background, color: colors.text, flex: 1 }]}
-                  placeholder="Add subtask…" placeholderTextColor={colors.textVariant + '50'}
-                  value={subInput} onChangeText={setSubInput}
-                  onSubmitEditing={addSub} returnKeyType="done"
-                />
-                <TouchableOpacity onPress={addSub} style={[mStyles.subAddBtn, { backgroundColor: colors.primary + '20' }]}>
-                  <Ionicons name="add" size={20} color={colors.primary} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Save & Add Next — only in add mode */}
-              {!isEdit && (
-                <TouchableOpacity
-                  onPress={() => canSave && onSaveAndNext(build())}
-                  activeOpacity={canSave ? 0.8 : 1}
-                  style={{ marginBottom: 10, marginTop: 16, opacity: canSave ? 1 : 0.35 }}
-                >
-                  <View style={[mStyles.nextBtn, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '45' }]}>
-                    <Ionicons name="add-circle-outline" size={17} color={colors.primary} style={{ marginRight: 7 }} />
-                    <Text style={[mStyles.nextTxt, { color: colors.primary }]}>Save & Add Next</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity onPress={() => canSave && onSave(build())} activeOpacity={canSave ? 0.85 : 1} style={{ opacity: canSave ? 1 : 0.35 }}>
-                <LinearGradient colors={[colors.primary, colors.primaryLight || colors.primary + 'CC']} style={mStyles.saveBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                  <Ionicons name={isEdit ? 'checkmark-done-outline' : 'checkmark-circle-outline'} size={19} color="#FFF" style={{ marginRight: 8 }} />
-                  <Text style={mStyles.saveTxt}>{isEdit ? 'Save Changes' : 'Add Todo'}</Text>
-                </LinearGradient>
               </TouchableOpacity>
+            )}
 
-              <View style={{ height: Platform.OS === 'ios' ? 24 : 12 }} />
-            </ScrollView>
-          </Animated.View>
+            <TouchableOpacity onPress={() => canSave && onSave(build())} activeOpacity={canSave ? 0.85 : 1} style={{ opacity: canSave ? 1 : 0.35 }}>
+              <LinearGradient colors={[colors.primary, colors.primaryLight || colors.primary + 'CC']} style={mStyles.saveBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                <Ionicons name={isEdit ? 'checkmark-done-outline' : 'checkmark-circle-outline'} size={19} color="#FFF" style={{ marginRight: 8 }} />
+                <Text style={mStyles.saveTxt}>{isEdit ? 'Save Changes' : 'Add Todo'}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <View style={{ height: Platform.OS === 'ios' ? 24 : 12 }} />
+          </ScrollView>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const mStyles = StyleSheet.create({
-  overlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-  sheet:       { borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 22, maxHeight: '93%' },
-  handle:      { width: 36, height: 4, borderRadius: 2, backgroundColor: '#00000018', alignSelf: 'center', marginBottom: 16 },
-  hdr:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  title:       { fontSize: scaleFontSize(21), fontWeight: '800' },
-  closeBtn:    { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  input:       { borderRadius: 14, padding: 14, fontSize: scaleFontSize(15), fontWeight: '500', marginBottom: 10, minHeight: 48 },
-  notesInput:  { borderRadius: 14, padding: 14, fontSize: scaleFontSize(13), marginBottom: 18, minHeight: 66, textAlignVertical: 'top' },
-  lbl:         { fontSize: scaleFontSize(10), fontWeight: '800', letterSpacing: 1.4, marginBottom: 10 },
-  priRow:      { flexDirection: 'row', gap: 8, marginBottom: 20 },
-  priBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 12, borderWidth: 1.5, gap: 5 },
-  pDot:        { width: 8, height: 8, borderRadius: 4 },
-  priBtnTxt:   { fontSize: scaleFontSize(11), fontWeight: '800' },
-  tagChip:     { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, marginRight: 8 },
-  tagChipTxt:  { fontSize: scaleFontSize(12), fontWeight: '700' },
-  dateRow:     { flexDirection: 'row', gap: 8, marginBottom: 20, alignItems: 'center' },
-  dateBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1.5 },
-  dateTxt:     { fontSize: scaleFontSize(13), fontWeight: '600' },
-  dateClear:   { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  subRow:      { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, marginBottom: 6 },
-  subTxt:      { flex: 1, fontSize: scaleFontSize(13), fontWeight: '500' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 22, maxHeight: '93%' },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#00000018', alignSelf: 'center', marginBottom: 16 },
+  hdr: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  title: { fontSize: scaleFontSize(21), fontWeight: '800' },
+  closeBtn: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  input: { borderRadius: 14, padding: 14, fontSize: scaleFontSize(15), fontWeight: '500', marginBottom: 10, minHeight: 48 },
+  notesInput: { borderRadius: 14, padding: 14, fontSize: scaleFontSize(13), marginBottom: 18, minHeight: 66, textAlignVertical: 'top' },
+  lbl: { fontSize: scaleFontSize(10), fontWeight: '800', letterSpacing: 1.4, marginBottom: 10 },
+  priRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  priBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 12, borderWidth: 1.5, gap: 5 },
+  pDot: { width: 8, height: 8, borderRadius: 4 },
+  priBtnTxt: { fontSize: scaleFontSize(11), fontWeight: '800' },
+  tagChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, marginRight: 8 },
+  tagChipTxt: { fontSize: scaleFontSize(12), fontWeight: '700' },
+  dateRow: { flexDirection: 'row', gap: 8, marginBottom: 20, alignItems: 'center' },
+  dateBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1.5 },
+  dateTxt: { fontSize: scaleFontSize(13), fontWeight: '600' },
+  dateClear: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  subRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, marginBottom: 6 },
+  subTxt: { flex: 1, fontSize: scaleFontSize(13), fontWeight: '500' },
   subInputRow: { flexDirection: 'row', gap: 8, marginBottom: 4, alignItems: 'center' },
-  subInput:    { borderRadius: 10, padding: 10, fontSize: scaleFontSize(13) },
-  subAddBtn:   { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  nextBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 16, borderWidth: 1.5 },
-  nextTxt:     { fontSize: scaleFontSize(15), fontWeight: '800' },
-  saveBtn:     { flexDirection: 'row', height: 54, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  saveTxt:     { color: '#FFF', fontWeight: '800', fontSize: scaleFontSize(16) },
+  subInput: { borderRadius: 10, padding: 10, fontSize: scaleFontSize(13) },
+  subAddBtn: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  nextBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 16, borderWidth: 1.5 },
+  nextTxt: { fontSize: scaleFontSize(15), fontWeight: '800' },
+  saveBtn: { flexDirection: 'row', height: 54, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  saveTxt: { color: '#FFF', fontWeight: '800', fontSize: scaleFontSize(16) },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -613,45 +568,45 @@ export default function TodosScreen() {
   const { colors, isDark } = useTheme();
   const isFocused = useIsFocused();
 
-  const [todos,          setTodos]         = useState<Todo[]>([]);
-  const [archived,       setArchived]      = useState<Todo[]>([]);
-  const [modalOpen,      setModalOpen]     = useState(false);
-  const [editingTodo,    setEditingTodo]   = useState<Todo | null>(null);
-  const [clearOpen,      setClearOpen]     = useState(false);
-  const [archiveOpen,    setArchiveOpen]   = useState(false);
-  const [search,         setSearch]        = useState('');
-  const [filterPri,      setFilterPri]     = useState<Priority | 'all'>('all');
-  const [showDone,       setShowDone]      = useState(true);
-  const [toast,          setToast]         = useState<{ msg: string; undo?: () => void } | null>(null);
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [archived, setArchived] = useState<Todo[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const [clearOpen, setClearOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filterPri, setFilterPri] = useState<Priority | 'all'>('all');
+  const [showDone, setShowDone] = useState(true);
+  const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(null);
 
-  const entryAnim    = useRef(new Animated.Value(0)).current;
-  const headerAnim   = useRef(new Animated.Value(0)).current;
+  const entryAnim = useRef(new Animated.Value(0)).current;
+  const headerAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim    = useRef(new Animated.Value(1)).current;
-  const toastAnim    = useRef(new Animated.Value(0)).current;
-  const fabAnim      = useRef(new Animated.Value(0)).current;
-  const toastTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const toastAnim = useRef(new Animated.Value(0)).current;
+  const fabAnim = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Entry animation
   useEffect(() => {
-    if (!isFocused) return;
     entryAnim.setValue(0); headerAnim.setValue(0); fabAnim.setValue(0);
     Animated.stagger(70, [
       Animated.spring(headerAnim, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
-      Animated.spring(entryAnim,  { toValue: 1, tension: 50, friction: 9, useNativeDriver: true }),
-      Animated.spring(fabAnim,    { toValue: 1, tension: 70, friction: 7, useNativeDriver: true }),
+      Animated.spring(entryAnim, { toValue: 1, tension: 50, friction: 9, useNativeDriver: true }),
+      Animated.spring(fabAnim, { toValue: 1, tension: 70, friction: 7, useNativeDriver: true }),
     ]).start();
     Animated.loop(Animated.sequence([
       Animated.timing(pulseAnim, { toValue: 1.033, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(pulseAnim, { toValue: 1,     duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ])).start();
-  }, [isFocused]);
+  }, []);
 
-  useEffect(() => { if (isFocused) load(); }, [isFocused]);
+  useEffect(() => { load(); }, []);
 
   const load = async () => {
     const { status } = await Notifications.requestPermissionsAsync();
-    const all = await loadTodosFromFile();
+    const all = await loadTodosFromStorage();
+    
     setTodos(all.filter(t => !t.archived));
     setArchived(all.filter(t => t.archived));
     animProg(all.filter(t => !t.archived));
@@ -664,7 +619,7 @@ export default function TodosScreen() {
 
   const saveAll = useCallback(async (active: Todo[], arch: Todo[] = archived) => {
     setTodos(active); setArchived(arch); animProg(active);
-    await saveTodosToFile([...active, ...arch]);
+    await saveTodosToStorage([...active, ...arch]);
   }, [archived]);
 
   const sort = (list: Todo[]) => {
@@ -766,15 +721,15 @@ export default function TodosScreen() {
     return true;
   }), [todos, showDone, filterPri, search]);
 
-  const active    = filtered.filter(t => !t.completed);
-  const done      = filtered.filter(t => t.completed);
-  const listData  = [...active, ...done];
+  const active = filtered.filter(t => !t.completed);
+  const done = filtered.filter(t => t.completed);
+  const listData = [...active, ...done];
   const doneCount = todos.filter(t => t.completed).length;
-  const total     = todos.length;
+  const total = todos.length;
 
   const progressWidth = progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
-  const headerSlide   = headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-26, 0] });
-  const fabScale      = fabAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  const headerSlide = headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-26, 0] });
+  const fabScale = fabAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
 
   const getGreeting = () => {
     const h = new Date().getHours();
@@ -993,60 +948,60 @@ export default function TodosScreen() {
 // ─── Static styles ────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  container:   { flex: 1 },
+  container: { flex: 1 },
   listContent: { paddingHorizontal: 18, paddingTop: Platform.OS === 'ios' ? 56 : 40 },
-  blob1:       { position: 'absolute', top: -70,   right: -70,  width: 230, height: 230, borderRadius: 115 },
-  blob2:       { position: 'absolute', bottom: 180, left: -50, width: 180, height: 180, borderRadius: 90 },
+  blob1: { position: 'absolute', top: -70, right: -70, width: 230, height: 230, borderRadius: 115 },
+  blob2: { position: 'absolute', bottom: 180, left: -50, width: 180, height: 180, borderRadius: 90 },
 
-  header:      { marginBottom: 18 },
-  headerTop:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  greeting:    { fontSize: scaleFontSize(12), fontWeight: '600', letterSpacing: 0.4, marginBottom: 2 },
-  title:       { fontSize: scaleFontSize(31), fontWeight: '800', letterSpacing: -0.5 },
-  headerBtns:  { flexDirection: 'row', gap: 7, marginTop: 3 },
-  hBtn:        { width: 36, height: 36, borderRadius: 11, justifyContent: 'center', alignItems: 'center', ...Shadows.soft },
+  header: { marginBottom: 18 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  greeting: { fontSize: scaleFontSize(12), fontWeight: '600', letterSpacing: 0.4, marginBottom: 2 },
+  title: { fontSize: scaleFontSize(31), fontWeight: '800', letterSpacing: -0.5 },
+  headerBtns: { flexDirection: 'row', gap: 7, marginTop: 3 },
+  hBtn: { width: 36, height: 36, borderRadius: 11, justifyContent: 'center', alignItems: 'center', ...Shadows.soft },
 
-  progCard:    { borderRadius: 20, overflow: 'hidden', marginBottom: 14, ...Shadows.soft },
-  progInner:   { padding: 17 },
-  progTop:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 11 },
-  progLbl:     { fontSize: scaleFontSize(9), fontWeight: '800', letterSpacing: 1.5, marginBottom: 2 },
-  progFrac:    { fontSize: scaleFontSize(25), fontWeight: '800' },
-  progPct:     { fontSize: scaleFontSize(21), fontWeight: '800' },
-  progBg:      { height: 9, borderRadius: 5, overflow: 'hidden' },
-  progFill:    { height: '100%', borderRadius: 5 },
-  allDone:     { marginTop: 7, fontSize: scaleFontSize(12), fontWeight: '700', textAlign: 'center' },
+  progCard: { borderRadius: 20, overflow: 'hidden', marginBottom: 14, ...Shadows.soft },
+  progInner: { padding: 17 },
+  progTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 11 },
+  progLbl: { fontSize: scaleFontSize(9), fontWeight: '800', letterSpacing: 1.5, marginBottom: 2 },
+  progFrac: { fontSize: scaleFontSize(25), fontWeight: '800' },
+  progPct: { fontSize: scaleFontSize(21), fontWeight: '800' },
+  progBg: { height: 9, borderRadius: 5, overflow: 'hidden' },
+  progFill: { height: '100%', borderRadius: 5 },
+  allDone: { marginTop: 7, fontSize: scaleFontSize(12), fontWeight: '700', textAlign: 'center' },
 
-  searchBar:   { flexDirection: 'row', alignItems: 'center', borderRadius: 13, paddingHorizontal: 12, height: 40, gap: 8, marginBottom: 11, ...Shadows.soft },
+  searchBar: { flexDirection: 'row', alignItems: 'center', borderRadius: 13, paddingHorizontal: 12, height: 40, gap: 8, marginBottom: 11, ...Shadows.soft },
   searchInput: { flex: 1, fontSize: scaleFontSize(13), fontWeight: '500' },
 
-  chip:        { paddingHorizontal: 11, paddingVertical: 7, borderRadius: 18 },
-  chipTxt:     { fontSize: scaleFontSize(11), fontWeight: '700' },
-  divider:     { width: 1, height: 22, alignSelf: 'center', marginHorizontal: 5 },
-  secLbl:      { fontSize: scaleFontSize(10), fontWeight: '800', letterSpacing: 1.5, marginBottom: 8 },
+  chip: { paddingHorizontal: 11, paddingVertical: 7, borderRadius: 18 },
+  chipTxt: { fontSize: scaleFontSize(11), fontWeight: '700' },
+  divider: { width: 1, height: 22, alignSelf: 'center', marginHorizontal: 5 },
+  secLbl: { fontSize: scaleFontSize(10), fontWeight: '800', letterSpacing: 1.5, marginBottom: 8 },
 
-  empty:       { alignItems: 'center', paddingTop: 54 },
-  emptyTitle:  { fontSize: scaleFontSize(20), fontWeight: '800', marginBottom: 7 },
-  emptySub:    { fontSize: scaleFontSize(13), textAlign: 'center', lineHeight: 20, opacity: 0.6 },
+  empty: { alignItems: 'center', paddingTop: 54 },
+  emptyTitle: { fontSize: scaleFontSize(20), fontWeight: '800', marginBottom: 7 },
+  emptySub: { fontSize: scaleFontSize(13), textAlign: 'center', lineHeight: 20, opacity: 0.6 },
 
-  fab:         { position: 'absolute', bottom: 30, right: 20, width: 54, height: 54, borderRadius: 18, overflow: 'hidden', ...Shadows.soft },
-  fabGrad:     { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  fab: { position: 'absolute', bottom: 30, right: 20, width: 54, height: 54, borderRadius: 18, overflow: 'hidden', ...Shadows.soft },
+  fabGrad: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  toastWrap:   { position: 'absolute', bottom: 96, left: 0, right: 0 },
+  toastWrap: { position: 'absolute', bottom: 96, left: 0, right: 0 },
 
   archOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  archSheet:   { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 22, maxHeight: '72%' },
-  archItem:    { flexDirection: 'row', alignItems: 'center', padding: 13, borderRadius: 13, marginBottom: 7, gap: 11 },
-  archTxt:     { fontSize: scaleFontSize(14), fontWeight: '600', marginBottom: 2 },
-  archSub:     { fontSize: scaleFontSize(10), fontWeight: '600' },
-  restoreBtn:  { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 9 },
-  restoreTxt:  { fontSize: scaleFontSize(11), fontWeight: '700' },
+  archSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 22, maxHeight: '72%' },
+  archItem: { flexDirection: 'row', alignItems: 'center', padding: 13, borderRadius: 13, marginBottom: 7, gap: 11 },
+  archTxt: { fontSize: scaleFontSize(14), fontWeight: '600', marginBottom: 2 },
+  archSub: { fontSize: scaleFontSize(10), fontWeight: '600' },
+  restoreBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 9 },
+  restoreTxt: { fontSize: scaleFontSize(11), fontWeight: '700' },
 
-  clearOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 22 },
-  clearCard:       { borderRadius: 26, padding: 26, alignItems: 'center' },
-  clearIcon:       { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  clearTitle:      { fontSize: scaleFontSize(18), fontWeight: '800', marginBottom: 6 },
-  clearSub:        { fontSize: scaleFontSize(13), textAlign: 'center', lineHeight: 20, marginBottom: 20, opacity: 0.7 },
-  clearBtns:       { flexDirection: 'row', gap: 10, width: '100%' },
-  clearCancelBtn:  { flex: 1, height: 46, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
+  clearOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 22 },
+  clearCard: { borderRadius: 26, padding: 26, alignItems: 'center' },
+  clearIcon: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  clearTitle: { fontSize: scaleFontSize(18), fontWeight: '800', marginBottom: 6 },
+  clearSub: { fontSize: scaleFontSize(13), textAlign: 'center', lineHeight: 20, marginBottom: 20, opacity: 0.7 },
+  clearBtns: { flexDirection: 'row', gap: 10, width: '100%' },
+  clearCancelBtn: { flex: 1, height: 46, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
   clearConfirmBtn: { flex: 1, height: 46, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
-  clearBtnTxt:     { fontWeight: '800', fontSize: scaleFontSize(14) },
+  clearBtnTxt: { fontWeight: '800', fontSize: scaleFontSize(14) },
 });
