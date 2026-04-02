@@ -26,6 +26,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Typography, Shadows } from '../theme/Theme';
 import { scaleFontSize } from '../utils/ResponsiveSize';
 import { useTheme } from '../context/ThemeContext';
+import { recordTodoCompleted } from '../services/DailyLogService';
 
 const { width } = Dimensions.get('window');
 
@@ -662,9 +663,18 @@ export default function TodosScreen() {
 
   const toggleTodo = useCallback((id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    saveAll(sort(todos.map(t =>
-      t.id === id ? { ...t, completed: !t.completed, completedAt: !t.completed ? Date.now() : undefined } : t
-    )));
+    const now = Date.now();
+    const next = todos.map(t => {
+      if (t.id !== id) return t;
+      const willComplete = !t.completed;
+      const completedAt = willComplete ? now : undefined;
+      if (willComplete) {
+        // Fire-and-forget: journal entry is persisted separately.
+        recordTodoCompleted({ todoId: t.id, text: t.text, completedAt: now }).catch(() => { });
+      }
+      return { ...t, completed: willComplete, completedAt };
+    });
+    saveAll(sort(next));
   }, [todos, saveAll]);
 
   const toggleSubtask = useCallback((todoId: string, subtaskId: string) => {

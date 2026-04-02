@@ -25,6 +25,7 @@ import * as Haptics from 'expo-haptics';
 import { Typography, Shadows } from '../theme/Theme';
 import { scaleFontSize } from '../utils/ResponsiveSize';
 import { useTheme } from '../context/ThemeContext';
+import { recordFocusSession } from '../services/DailyLogService';
 
 const { width, height } = Dimensions.get('window');
 const ds = (size: number) => (size * width) / 414;
@@ -677,6 +678,16 @@ export default function FocusScreen() {
   };
 
   const handleCompleteSession = () => {
+    const endTs = Date.now();
+    if (sessionStartTime > 0) {
+      recordFocusSession({
+        startTs: sessionStartTime,
+        endTs,
+        title: sessionName || (isZenMode ? 'Zen Flow' : 'Focus Session'),
+        tag: sessionTag,
+        mode: mode.id,
+      }).catch(() => { });
+    }
     setShowComplete(false);
     setStatus('setup');
     setIsActive(false);
@@ -1526,6 +1537,18 @@ export default function FocusScreen() {
             style={s.exitBtn}
             onPress={() => {
               triggerHaptic();
+              const endTs = Date.now();
+              const elapsedMin = sessionStartTime > 0 ? Math.round((endTs - sessionStartTime) / 60000) : 0;
+              // If the user actually used the timer today, capture it in the daily log.
+              if (sessionStartTime > 0 && elapsedMin >= 1) {
+                recordFocusSession({
+                  startTs: sessionStartTime,
+                  endTs,
+                  title: sessionName || (isZenMode ? 'Zen Flow' : 'Focus Session'),
+                  tag: sessionTag,
+                  mode: mode.id,
+                }).catch(() => { });
+              }
               setStatus('setup');
               setIsActive(false);
               setCompletedSprints(0);

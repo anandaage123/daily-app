@@ -1,11 +1,11 @@
 {
-  "version": "3.2.1",
-  "build": 33,
-  "versionCode": 33,
-  "releaseDate": "2026-03-31",
-  "releaseNotes": "\u2022 Fixes the monthly limit setting issue",
-  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v3.2.1/Monolith.apk",
-  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v3.2.1",
+  "version": "3.3.0",
+  "build": 34,
+  "versionCode": 34,
+  "releaseDate": "2026-04-02",
+  "releaseNotes": "\u2022 Adds Journal Notes Auto Generation functionality\n\u2022 Adds timestamp feature to the journal\n\u2022 integrates, habits,todos and focus sessions automatically.",
+  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v3.3.0/Monolith.apk",
+  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v3.3.0",
   "minBuildRequired": 1,
   "forceUpdate": false
 }

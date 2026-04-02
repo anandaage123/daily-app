@@ -26,6 +26,7 @@ import { Typography, Shadows, Spacing } from '../theme/Theme';
 import { scaleFontSize } from '../utils/ResponsiveSize';
 import { APP_VERSION, APP_BUILD } from '../services/UpdateService';
 import { useTheme } from '../context/ThemeContext';
+import { recordHabitCompleted } from '../services/DailyLogService';
 
 const { width } = Dimensions.get('window');
 
@@ -487,6 +488,17 @@ export default function DashboardScreen() {
     const updated = habits.map(h => {
       if (h.id === id) {
         const isCompletingToday = !h.completed && !isToday(h.lastCompletedDate);
+        const completedAt = Date.now();
+
+        if (isCompletingToday) {
+          // Fire-and-forget: daily log note is persisted separately.
+          recordHabitCompleted({
+            habitId: h.id,
+            name: h.name,
+            completedAt,
+            streak: h.count + 1,
+          }).catch(() => { });
+        }
         
         return {
           ...h,

@@ -22,6 +22,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { cacheDirectory, writeAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { scaleFontSize } from '../utils/ResponsiveSize';
 import { useTheme } from '../context/ThemeContext';
 import { JSX } from 'react/jsx-runtime';
@@ -66,6 +67,10 @@ interface Note {
 const formatDate = (ts: number) =>
   new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+type DailyLogSection =
+  | { kind: 'title'; text: string }
+  | { kind: 'row'; text: string };
+
 export default function NotesScreen() {
   const { colors, isDark } = useTheme();
   const isFocused = useIsFocused();
@@ -75,6 +80,7 @@ export default function NotesScreen() {
   const surfaceVariant = isDark ? '#2C2C2E' : '#F2F2F7';
   const outlineColor = isDark ? '#3A3A3C' : '#E5E5EA';
   const placeholderColor = isDark ? '#55555A' : '#A0A0B0';
+  const glass = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.78)';
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -162,6 +168,43 @@ export default function NotesScreen() {
     (categories.find(c => c.name === name) ?? { color: colors.primary }).color;
   const getCategoryIcon = (name: string) =>
     (categories.find(c => c.name === name) ?? { icon: '📝' }).icon;
+
+  const isDailyLogNote = (note?: Partial<Note>) =>
+    !!note?.id?.startsWith('daily-log-') ||
+    (note?.content?.includes('\nTIMESHEET\n') && note?.content?.includes('\nCOMPLETED\n'));
+
+  const parseDailyLog = (content?: string): { timesheet: DailyLogSection[]; completed: DailyLogSection[] } => {
+    const safe = content ?? '';
+    const lines = safe.split('\n').map(l => l.trimEnd());
+
+    const findIdx = (label: string) => lines.findIndex(l => l.trim() === label);
+    const timesheetIdx = findIdx('TIMESHEET');
+    const completedIdx = findIdx('COMPLETED');
+
+    const sliceBetween = (start: number, end: number) => {
+      if (start < 0) return [];
+      const from = start + 1;
+      const to = end >= 0 ? end : lines.length;
+      return lines.slice(from, to);
+    };
+
+    // Skip underline rows like "───────"
+    const normalize = (arr: string[]) => arr.filter(l => !(l.trim() && /^[-─]{3,}$/.test(l.trim())));
+
+    const timesheetLines = normalize(sliceBetween(timesheetIdx, completedIdx));
+    const completedLines = normalize(sliceBetween(completedIdx, -1));
+
+    const toSections = (arr: string[]) =>
+      arr
+        .filter(Boolean)
+        .map((l): DailyLogSection => {
+          const t = l.trim();
+          if (t.endsWith(':') && !t.startsWith('-')) return { kind: 'title', text: t.slice(0, -1) };
+          return { kind: 'row', text: t.replace(/^-+\s*/, '') };
+        });
+
+    return { timesheet: toSections(timesheetLines), completed: toSections(completedLines) };
+  };
 
   // ── Filtering ──────────────────────────────────────────────────────────────
   const filteredNotes = notes.filter(n => {
@@ -527,6 +570,12 @@ export default function NotesScreen() {
         onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); togglePin(note.id); }}
         activeOpacity={0.75}
       >
+        <LinearGradient
+          colors={[color + '22', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFill}
+        />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Text style={s.noteTitle} numberOfLines={1}>{note.isPinned ? '📌 ' : ''}{note.title}</Text>
           <Text style={{ fontSize: 20, marginLeft: 8 }}>{note.mood}</Text>
@@ -553,6 +602,12 @@ export default function NotesScreen() {
         onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); togglePin(note.id); }}
         activeOpacity={0.75}
       >
+        <LinearGradient
+          colors={[color + '18', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
           <Text style={{ fontSize: 11, fontWeight: '800', color, letterSpacing: 0.3 }}>{getCategoryIcon(note.category)} {note.category.toUpperCase()}</Text>
           <Text style={{ fontSize: 14 }}>{note.mood}</Text>
@@ -1034,22 +1089,200 @@ export default function NotesScreen() {
                   />
                 </>
               ) : (
-                <View style={{ padding: 24 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 12 }}>
-                    <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: getCategoryColor(currentNote.category || '') + '25', justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 24 }}>{getCategoryIcon(currentNote.category || '')}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 12, fontWeight: '800', color: getCategoryColor(currentNote.category || ''), letterSpacing: 0.5 }}>
-                        {currentNote.category?.toUpperCase()}
-                      </Text>
-                      <Text style={{ fontSize: 13, color: secondaryText }}>{currentNote.date}</Text>
-                    </View>
-                    <Text style={{ fontSize: 36 }}>{currentNote.mood}</Text>
+                <View style={{ paddingBottom: 28 }}>
+                  {/* Colorful header */}
+                  <View style={{ paddingHorizontal: 18, paddingTop: 10, paddingBottom: 18 }}>
+                    <LinearGradient
+                      colors={[
+                        (getCategoryColor(currentNote.category || '') || colors.primary) + '55',
+                        (getCategoryColor(currentNote.category || '') || colors.primary) + '18',
+                        'transparent',
+                      ]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={{
+                        borderRadius: 22,
+                        overflow: 'hidden',
+                        borderWidth: 1,
+                        borderColor: outlineColor,
+                      }}
+                    >
+                      <View style={{ padding: 18 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                          <View
+                            style={{
+                              width: 52,
+                              height: 52,
+                              borderRadius: 16,
+                              backgroundColor: glass,
+                              borderWidth: 1,
+                              borderColor: outlineColor,
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <Text style={{ fontSize: 24 }}>{getCategoryIcon(currentNote.category || '')}</Text>
+                          </View>
+
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={{
+                                fontSize: 11,
+                                fontWeight: '900',
+                                letterSpacing: 1.2,
+                                color: getCategoryColor(currentNote.category || '') || colors.primary,
+                              }}
+                            >
+                              {(currentNote.category || 'Personal').toUpperCase()}
+                            </Text>
+                            <Text style={{ fontSize: 13, color: secondaryText, fontWeight: '700', marginTop: 2 }}>
+                              {currentNote.date}
+                            </Text>
+                          </View>
+
+                          <View
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: 8,
+                              borderRadius: 16,
+                              backgroundColor: glass,
+                              borderWidth: 1,
+                              borderColor: outlineColor,
+                            }}
+                          >
+                            <Text style={{ fontSize: 22 }}>{currentNote.mood}</Text>
+                          </View>
+                        </View>
+
+                        <Text style={{ fontSize: 28, fontWeight: '900', color: colors.text, lineHeight: 34 }}>
+                          {currentNote.title}
+                        </Text>
+                      </View>
+                    </LinearGradient>
                   </View>
-                  <View style={{ height: 3, backgroundColor: getCategoryColor(currentNote.category || ''), borderRadius: 2, marginBottom: 20 }} />
-                  <Text style={{ fontSize: 30, fontWeight: '800', color: colors.text, lineHeight: 38 }}>{currentNote.title}</Text>
-                  <Text style={{ fontSize: 17, color: colors.text, marginTop: 18, lineHeight: 28 }}>{currentNote.content}</Text>
+
+                  {/* Content */}
+                  {isDailyLogNote(currentNote) ? (
+                    (() => {
+                      const accent = getCategoryColor(currentNote.category || '') || colors.primary;
+                      const parsed = parseDailyLog(currentNote.content);
+                      const pill = (label: string, bg: string) => (
+                        <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, backgroundColor: bg, borderWidth: 1, borderColor: outlineColor }}>
+                          <Text style={{ fontSize: 11, fontWeight: '900', letterSpacing: 1.1, color: colors.text }}>
+                            {label}
+                          </Text>
+                        </View>
+                      );
+
+                      const SectionCard = ({ title, icon, children, tint }: { title: string; icon: string; children: React.ReactNode; tint: string }) => (
+                        <View style={{ marginHorizontal: 18, marginTop: 14 }}>
+                          <View
+                            style={{
+                              borderRadius: 22,
+                              overflow: 'hidden',
+                              backgroundColor: cardBg,
+                              borderWidth: 1,
+                              borderColor: outlineColor,
+                            }}
+                          >
+                            <LinearGradient
+                              colors={[tint + '28', 'transparent']}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                              style={StyleSheet.absoluteFill}
+                            />
+                            <View style={{ padding: 16 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                  <View style={{ width: 38, height: 38, borderRadius: 14, backgroundColor: glass, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: outlineColor }}>
+                                    <Text style={{ fontSize: 18 }}>{icon}</Text>
+                                  </View>
+                                  <Text style={{ fontSize: 14, fontWeight: '900', color: colors.text, letterSpacing: 0.2 }}>
+                                    {title}
+                                  </Text>
+                                </View>
+                                {title === 'Timesheet' ? pill('FOCUS', accent + '20') : pill('DONE', colors.primary + '18')}
+                              </View>
+                              {children}
+                            </View>
+                          </View>
+                        </View>
+                      );
+
+                      const Row = ({ text, tone }: { text: string; tone: 'normal' | 'muted' }) => (
+                        <View style={{ flexDirection: 'row', gap: 10, paddingVertical: 10 }}>
+                          <View style={{ width: 10, alignItems: 'center', paddingTop: 2 }}>
+                            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: tone === 'muted' ? outlineColor : accent }} />
+                          </View>
+                          <Text style={{ flex: 1, fontSize: 14, lineHeight: 22, color: tone === 'muted' ? secondaryText : colors.text, fontWeight: '600' }}>
+                            {text}
+                          </Text>
+                        </View>
+                      );
+
+                      const TitleRow = ({ text }: { text: string }) => (
+                        <View style={{ marginTop: 10, marginBottom: 6 }}>
+                          <Text style={{ fontSize: 11, fontWeight: '900', letterSpacing: 1.3, color: secondaryText }}>
+                            {text.toUpperCase()}
+                          </Text>
+                        </View>
+                      );
+
+                      return (
+                        <View>
+                          <SectionCard title="Timesheet" icon="⏱️" tint={accent}>
+                            {parsed.timesheet.length === 0 ? (
+                              <Row text="No focus sessions logged." tone="muted" />
+                            ) : (
+                              parsed.timesheet.map((s, idx) =>
+                                s.kind === 'title'
+                                  ? <TitleRow key={`t-${idx}`} text={s.text} />
+                                  : <Row key={`r-${idx}`} text={s.text} tone="normal" />
+                              )
+                            )}
+                          </SectionCard>
+
+                          <SectionCard title="Completed" icon="✅" tint={colors.primary}>
+                            {parsed.completed.length === 0 ? (
+                              <Row text="Nothing completed yet." tone="muted" />
+                            ) : (
+                              parsed.completed.map((s, idx) =>
+                                s.kind === 'title'
+                                  ? <TitleRow key={`ct-${idx}`} text={s.text} />
+                                  : <Row key={`cr-${idx}`} text={s.text} tone="normal" />
+                              )
+                            )}
+                          </SectionCard>
+                        </View>
+                      );
+                    })()
+                  ) : (
+                    <View style={{ paddingHorizontal: 18 }}>
+                      <View
+                        style={{
+                          borderRadius: 22,
+                          backgroundColor: cardBg,
+                          borderWidth: 1,
+                          borderColor: outlineColor,
+                          padding: 18,
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <LinearGradient
+                          colors={[
+                            (getCategoryColor(currentNote.category || '') || colors.primary) + '16',
+                            'transparent',
+                          ]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={StyleSheet.absoluteFill}
+                        />
+                        <Text style={{ fontSize: 16, color: colors.text, lineHeight: 26, fontWeight: '600' }}>
+                          {currentNote.content}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
               )}
             </ScrollView>
