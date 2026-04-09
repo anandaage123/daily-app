@@ -26,7 +26,7 @@ import { Typography, Shadows, Spacing } from '../theme/Theme';
 import { scaleFontSize } from '../utils/ResponsiveSize';
 import { APP_VERSION, APP_BUILD } from '../services/UpdateService';
 import { useTheme } from '../context/ThemeContext';
-import { recordHabitCompleted } from '../services/DailyLogService';
+import { recordHabitCompleted, removeHabitCompleted } from '../services/DailyLogService';
 
 const { width } = Dimensions.get('window');
 
@@ -487,27 +487,43 @@ export default function DashboardScreen() {
     const today = getTodayString();
     const updated = habits.map(h => {
       if (h.id === id) {
-        const isCompletingToday = !h.completed && !isToday(h.lastCompletedDate);
-        const completedAt = Date.now();
+        const currentlyDoneToday = h.completed && isToday(h.lastCompletedDate);
+        const newlyCompletingToday = !h.completed && !isToday(h.lastCompletedDate);
+        const uncompletingToday = h.completed && isToday(h.lastCompletedDate);
 
-        if (isCompletingToday) {
-          // Fire-and-forget: daily log note is persisted separately.
+        if (newlyCompletingToday) {
           recordHabitCompleted({
             habitId: h.id,
             name: h.name,
-            completedAt,
+            completedAt: Date.now(),
             streak: h.count + 1,
           }).catch(() => { });
+          
+          return {
+            ...h,
+            completed: true,
+            count: h.count + 1,
+            lastCompletedDate: today
+          };
+        } else if (uncompletingToday) {
+          removeHabitCompleted({
+            habitId: h.id,
+            completedAt: Date.now(),
+          }).catch(() => { });
+
+          return {
+            ...h,
+            completed: false,
+            count: Math.max(0, h.count - 1),
+            lastCompletedDate: undefined // or keep it, but count handles the streak logic
+          };
+        } else {
+          // Normal toggle (e.g. if already finished today but toggling again, or if first time completing today)
+          // But our logic above covers the main states. 
+          // If it was already completed but not today, then toggle is just visual? 
+          // No, rituals reset daily.
+          return { ...h, completed: !h.completed };
         }
-        
-        return {
-          ...h,
-          completed: !h.completed,
-          // Increment streak only when completing for the first time today
-          count: isCompletingToday ? h.count + 1 : h.count,
-          // Set lastCompletedDate to today when marking as complete
-          lastCompletedDate: !h.completed ? today : h.lastCompletedDate
-        };
       }
       return h;
     });
@@ -654,7 +670,12 @@ export default function DashboardScreen() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.habitName, habit.completed && styles.habitNameCompleted]}>{habit.name}</Text>
-                        <Text style={styles.habitMeta}>{habit.count} streak</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Text style={[styles.habitMeta, habit.count > 0 && { color: colors.secondary, fontWeight: '700' }]}>
+                            {habit.count > 0 ? `🔥 ${habit.count}` : 'No streak'}
+                          </Text>
+                          {habit.count >= 3 && <Text style={{ fontSize: 10 }}>✨</Text>}
+                        </View>
                       </View>
                     </View>
                     <Pressable onPress={() => {

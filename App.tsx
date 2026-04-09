@@ -926,34 +926,21 @@ export default function App() {
       ]),
     ).start();
 
-    Animated.sequence([
-      Animated.delay(200),
-      Animated.timing(masterFade, { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.parallel([
-        Animated.spring(logoScale, { toValue: 1, tension: 8, friction: 4, useNativeDriver: true }),
-        Animated.timing(logoRotate, {
-          toValue: 0, duration: 900,
-          easing: Easing.out(Easing.cubic), useNativeDriver: true,
-        }),
-        Animated.timing(bracketFade, { toValue: 1, duration: 700, useNativeDriver: true }),
+    Animated.parallel([
+      Animated.timing(masterFade, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.spring(logoScale, { toValue: 1, tension: 120, friction: 10, useNativeDriver: true }),
+      Animated.timing(logoRotate, { toValue: 0, duration: 400, easing: Easing.out(Easing.back(1)), useNativeDriver: true }),
+      Animated.timing(bracketFade, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.sequence([
+        Animated.delay(100),
+        Animated.parallel([
+          Animated.timing(nameFade, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.timing(nameSlide, { toValue: 0, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+          Animated.timing(creatorFade, { toValue: 1, duration: 300, useNativeDriver: true }),
+        ]),
+        Animated.timing(seekProgress, { toValue: 1, duration: 600, easing: Easing.inOut(Easing.cubic), useNativeDriver: false }),
+        Animated.timing(btnFade, { toValue: 1, duration: 250, useNativeDriver: true }),
       ]),
-      Animated.delay(180),
-      Animated.parallel([
-        Animated.timing(nameFade, { toValue: 1, duration: 600, useNativeDriver: true }),
-        Animated.timing(nameSlide, {
-          toValue: 0, duration: 600,
-          easing: Easing.out(Easing.cubic), useNativeDriver: true,
-        }),
-      ]),
-      Animated.delay(120),
-      Animated.timing(creatorFade, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.delay(200),
-      Animated.timing(seekProgress, {
-        toValue: 1, duration: 1800,
-        easing: Easing.inOut(Easing.cubic), useNativeDriver: false,
-      }),
-      Animated.delay(200),
-      Animated.timing(btnFade, { toValue: 1, duration: 500, useNativeDriver: true }),
     ]).start();
 
     const sub = AppState.addEventListener('change', async (state) => {

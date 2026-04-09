@@ -175,8 +175,8 @@ export default function UpdateModal({ manifest, onDismiss }: UpdateModalProps) {
   const btnLabel = () => {
     switch (dlState) {
       case 'downloading': return `Downloading… ${progressPercent}%`;
-      case 'done':        return 'Tap to Install';
-      default:            return `Update to v${manifest.version}`;
+      case 'done': return 'Tap to Install';
+      default: return `Update to v${manifest.version}`;
     }
   };
 

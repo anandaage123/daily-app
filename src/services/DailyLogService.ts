@@ -245,3 +245,26 @@ export async function ensureDailyLogForToday() {
   await upsertDailyLogNote(dayKey, day.events);
 }
 
+export async function removeEvent(ts: number, id: string) {
+  const state = await loadState();
+  const dayKey = getDayKey(ts);
+  const day = state.byDay[dayKey];
+  if (!day) return;
+  
+  day.events = day.events.filter(e => e.id !== id);
+  await saveState(state);
+  await upsertDailyLogNote(dayKey, day.events);
+}
+
+export async function removeTodoCompleted(args: { todoId: string; completedAt: number }) {
+  const { todoId, completedAt } = args;
+  const id = `todo:${todoId}:${getDayKey(completedAt)}`;
+  await removeEvent(completedAt, id);
+}
+
+export async function removeHabitCompleted(args: { habitId: string; completedAt: number }) {
+  const { habitId, completedAt } = args;
+  const id = `habit:${habitId}:${getDayKey(completedAt)}`;
+  await removeEvent(completedAt, id);
+}
+

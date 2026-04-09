@@ -26,7 +26,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Typography, Shadows } from '../theme/Theme';
 import { scaleFontSize } from '../utils/ResponsiveSize';
 import { useTheme } from '../context/ThemeContext';
-import { recordTodoCompleted } from '../services/DailyLogService';
+import { recordTodoCompleted, removeTodoCompleted } from '../services/DailyLogService';
 
 const { width } = Dimensions.get('window');
 
@@ -671,6 +671,9 @@ export default function TodosScreen() {
       if (willComplete) {
         // Fire-and-forget: journal entry is persisted separately.
         recordTodoCompleted({ todoId: t.id, text: t.text, completedAt: now }).catch(() => { });
+      } else if (t.completedAt) {
+        // Remove from journal if un-checked
+        removeTodoCompleted({ todoId: t.id, completedAt: t.completedAt }).catch(() => { });
       }
       return { ...t, completed: willComplete, completedAt };
     });
