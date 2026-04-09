@@ -607,7 +607,7 @@ export default function TodosScreen() {
   const load = async () => {
     const { status } = await Notifications.requestPermissionsAsync();
     const all = await loadTodosFromStorage();
-    
+
     setTodos(all.filter(t => !t.archived));
     setArchived(all.filter(t => t.archived));
     animProg(all.filter(t => !t.archived));
@@ -765,6 +765,7 @@ export default function TodosScreen() {
             <>
               <Animated.View style={[s.header, { opacity: headerAnim, transform: [{ translateY: headerSlide }] }]}>
                 {/* Title row */}
+                <View style={{ height: 30 }} />
                 <View style={s.headerTop}>
                   <View>
                     <Text style={[s.greeting, { color: colors.textVariant }]}>{getGreeting()}</Text>
