@@ -3,7 +3,6 @@ import {
   Animated,
   Dimensions,
   Easing,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -48,7 +47,10 @@ type DownloadState = 'idle' | 'downloading' | 'done' | 'error';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function parseReleaseNotes(notes: string): string[] {
-  return notes.split('\n').filter((l) => l.trim().length > 0);
+  return notes
+    .split('\n')
+    .filter((l) => l.trim().length > 0)
+    .filter((l) => !l.toLowerCase().includes('http')); // Strip any links
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -273,7 +275,7 @@ export default function UpdateModal({ manifest, onDismiss }: UpdateModalProps) {
             ) : (
               <>
                 <Ionicons
-                  name={dlState === 'done' ? 'phone-portrait-outline' : dlState === 'error' ? 'open-outline' : 'download-outline'}
+                  name={dlState === 'done' ? 'phone-portrait-outline' : dlState === 'error' ? 'refresh-outline' : 'download-outline'}
                   size={18}
                   color="#fff"
                 />

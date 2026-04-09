@@ -7,7 +7,7 @@ import {
   readDirectoryAsync,
   cacheDirectory,
 } from 'expo-file-system/legacy';
-import { Linking, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import * as IntentLauncher from 'expo-intent-launcher';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
