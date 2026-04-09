@@ -2,7 +2,7 @@
   "expo": {
     "name": "Monolith",
     "slug": "daily-app",
-    "version": "3.3.8",
+    "version": "3.3.9",
     "orientation": "portrait",
     "icon": "./assets/AppIcons/appstore.png",
     "userInterfaceStyle": "dark",
@@ -13,7 +13,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "icon": "./assets/AppIcons/appstore.png"
+      "icon": "./assets/AppIcons/appstore.png",
+      "bundleIdentifier": "com.anandaage.dailyapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +22,13 @@
         "foregroundImage": "./assets/AppIcons/playstore.png"
       },
       "package": "com.anandaage.dailyapp",
-      "versionCode": 41
+      "versionCode": 42,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
