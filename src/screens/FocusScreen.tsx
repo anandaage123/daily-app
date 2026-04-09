@@ -568,11 +568,12 @@ export default function FocusScreen() {
 
   const saveSession = useCallback(async () => {
     if (status !== 'focus') return;
+    const elapsedSecs = totalTime - timeLeft;
     const newLog: SessionLog = {
       id: Date.now().toString(),
       name: sessionName || (isZenMode ? 'Zen Flow' : 'Focus Session'),
       tag: sessionTag,
-      duration: Math.floor(totalTime / 60),
+      duration: Math.max(1, Math.floor(elapsedSecs / 60)),
       timestamp: Date.now(),
       mode: mode.id,
       completedSprints: completedSprints + 1,
@@ -582,7 +583,7 @@ export default function FocusScreen() {
     try {
       await AsyncStorage.setItem('@focus_logs_v3', JSON.stringify(updated));
     } catch { }
-  }, [status, sessionName, sessionTag, totalTime, mode.id, completedSprints, logs, isZenMode]);
+  }, [status, sessionName, sessionTag, totalTime, timeLeft, mode.id, completedSprints, logs, isZenMode]);
 
   // ─── Haptic ───────────────────────────────────────────────────────────────────
   const triggerHaptic = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Medium) => {
@@ -591,51 +592,116 @@ export default function FocusScreen() {
 
   // ─── Format ───────────────────────────────────────────────────────────────────
   const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    const absSecs = Math.abs(secs);
+    const m = Math.floor(absSecs / 60);
+    const s = absSecs % 60;
+    const sign = secs < 0 ? '+' : ''; // Overtime shown with +
+    return `${sign}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const getFocusSecs = useCallback(() => {
+    if (isZenMode) return zenDuration * 60;
+    if (isCustomMode) return (parseInt(customFocus) || 25) * 60;
+    return mode.focus * 60;
+  }, [isZenMode, isCustomMode, zenDuration, customFocus, mode.focus]);
+
+  // ─── Update notification with live timer ───────────────────────────────────────
+  // REMOVED - No notifications, only haptics!
+
   // ─── Timer Engine ─────────────────────────────────────────────────────────────
+  // Focus phase: counts into negative (overtime). Break phase: stops at 0.
+  // With haptic feedback at key intervals
   useEffect(() => {
     let interval: any = null;
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => setTimeLeft((p) => p - 1), 1000);
-    } else if (timeLeft === 0 && isActive) {
-      handlePhaseEnd();
+
+    // Haptic feedback when phase starts
+    if (isActive && (status === 'focus' || status === 'break')) {
+      triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+      if (Platform.OS !== 'web') Vibration.vibrate([0, 200, 100, 200]);
+    }
+
+    if (isActive) {
+      if (status === 'focus') {
+        interval = setInterval(() => {
+          setTimeLeft((prev: number) => {
+            const next = prev - 1;
+
+            // Haptic feedback at key milestones
+            if (next === 60 || next === 30 || next === 10) {
+              triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
+              if (Platform.OS !== 'web') Vibration.vibrate(150);
+            }
+
+            // Heavy feedback when time is up
+            if (next === 0) {
+              triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
+              if (Platform.OS !== 'web') Vibration.vibrate([0, 500, 200, 500, 200, 500]);
+            }
+
+            return next; // Goes negative for overtime
+          });
+        }, 1000);
+      } else if (status === 'break') {
+        if (timeLeft > 0) {
+          interval = setInterval(() => {
+            setTimeLeft((prev: number) => {
+              const next = prev - 1;
+
+              // Haptic feedback at key milestones in break
+              if (next === 60 || next === 10) {
+                triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
+                if (Platform.OS !== 'web') Vibration.vibrate(150);
+              }
+
+              // Heavy feedback when break is over
+              if (next === 0) {
+                triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
+                if (Platform.OS !== 'web') Vibration.vibrate([0, 500, 200, 500, 200, 500]);
+              }
+
+              return next;
+            });
+          }, 1000);
+        } else {
+          handlePhaseEnd();
+        }
+      }
     }
     return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
+  }, [isActive, status]);
 
+  // Called when the user manually skips OR when break reaches zero.
+  // Focus phase: saves actual elapsed time (including overtime), then transitions.
+  // Break phase: resets to next focus sprint.
+  // CHANGE: Every sprint gets a break timer, even the last one.
   const handlePhaseEnd = useCallback(() => {
     setIsActive(false);
-    triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
     if (Platform.OS !== 'web') Vibration.vibrate([0, 400, 150, 400]);
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
 
     if (status === 'focus') {
-      saveSession();
+      saveSession(); // saveSession captures actual elapsed (totalTime - timeLeft) including overtime
       const newCompleted = completedSprints + 1;
       setCompletedSprints(newCompleted);
 
-      if (newCompleted >= totalSprints) {
-        // All sprints done!
-        setStatus('complete');
-        setShowComplete(true);
-        return;
-      }
-
-      const breakSecs =
-        isZenMode
-          ? 0
-          : (isCustomMode ? (parseInt(customBreak) || 5) : mode.break) * 60;
+      // Always show break timer, even for last sprint
+      const breakSecs = isZenMode
+        ? 0
+        : (isCustomMode ? (parseInt(customBreak) || 5) : mode.break) * 60;
 
       if (breakSecs > 0) {
+        // Transition to break but DO NOT auto-start — user manually presses play
         setStatus('break');
         setTimeLeft(breakSecs);
         setTotalTime(breakSecs);
-        setIsActive(true);
+        setIsActive(false); // ← Never auto-start break
       } else {
-        // zen or no-break: restart focus
+        // Zen / no-break: advance sprint, pause
+        if (newCompleted >= totalSprints) {
+          setStatus('complete');
+          setShowComplete(true);
+          return;
+        }
         const focusSecs = getFocusSecs();
         setCurrentSprint(newCompleted);
         setTimeLeft(focusSecs);
@@ -643,20 +709,20 @@ export default function FocusScreen() {
         setIsActive(false);
       }
     } else if (status === 'break') {
+      const newCompleted = completedSprints + 1;
+      if (newCompleted >= totalSprints) {
+        setStatus('complete');
+        setShowComplete(true);
+        return;
+      }
       const focusSecs = getFocusSecs();
-      setCurrentSprint(completedSprints);
+      setCurrentSprint(newCompleted);
       setStatus('focus');
       setTimeLeft(focusSecs);
       setTotalTime(focusSecs);
       setIsActive(false);
     }
-  }, [status, completedSprints, totalSprints, isZenMode, isCustomMode, customBreak, mode.break]);
-
-  const getFocusSecs = () => {
-    if (isZenMode) return zenDuration * 60;
-    if (isCustomMode) return (parseInt(customFocus) || 25) * 60;
-    return mode.focus * 60;
-  };
+  }, [status, completedSprints, totalSprints, isZenMode, isCustomMode, customBreak, mode.break, saveSession, getFocusSecs]);
 
   const skipPhase = () => {
     triggerHaptic();
@@ -1366,7 +1432,7 @@ export default function FocusScreen() {
   const phaseLabel = isZenMode
     ? 'BREATHING'
     : status === 'focus'
-      ? 'FOCUSING'
+      ? (timeLeft < 0 ? 'OVERTIME' : 'FOCUSING')
       : status === 'break'
         ? 'RECOVERING'
         : 'DONE';
