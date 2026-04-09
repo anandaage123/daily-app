@@ -1,6 +1,6 @@
 {
   "name": "Monolith",
-  "version": "3.3.6",
+  "version": "3.3.7",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",

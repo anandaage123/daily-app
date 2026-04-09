@@ -41,3 +41,4 @@ yarn-error.*
 /android
 src/screens/vault features.txt
 .idea/caches/deviceStreaming.xml
+Monolith.apk
