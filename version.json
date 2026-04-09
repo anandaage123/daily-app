@@ -1,11 +1,11 @@
 {
-  "version": "3.3.1",
-  "build": 35,
-  "versionCode": 35,
+  "version": "3.3.2",
+  "build": 36,
+  "versionCode": 36,
   "releaseDate": "2026-04-09",
-  "releaseNotes": "\u2022 Optimized loadscreen animation speed\n\u2022 Added fire icons for habit streaks\n\u2022 Fixed habit streak counting and un-check logic\n\u2022 Integrated journal removal for un-completed tasks",
-  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v3.3.1/Monolith.apk",
-  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v3.3.1",
+  "releaseNotes": "\u2022 Bug fixes and improvements",
+  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v3.3.2/Monolith.apk",
+  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v3.3.2",
   "minBuildRequired": 1,
   "forceUpdate": false
 }
