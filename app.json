@@ -2,7 +2,7 @@
   "expo": {
     "name": "Monolith",
     "slug": "daily-app",
-    "version": "3.3.11",
+    "version": "3.3.12",
     "orientation": "portrait",
     "icon": "./assets/AppIcons/appstore.png",
     "userInterfaceStyle": "dark",
@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/AppIcons/playstore.png"
       },
       "package": "com.anandaage.dailyapp",
-      "versionCode": 44,
+      "versionCode": 45,
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
