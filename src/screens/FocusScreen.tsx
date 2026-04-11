@@ -477,7 +477,7 @@ const CelebrationOverlay: React.FC<{
 export default function FocusScreen() {
   const { colors, isDark } = useTheme();
   useEffect(() => {
-    activateKeepAwakeAsync().catch(() => {});
+    activateKeepAwakeAsync().catch(() => { });
     return () => {
       deactivateKeepAwake();
     };
@@ -943,9 +943,9 @@ export default function FocusScreen() {
     card: {
       backgroundColor: isDark ? colors.surfaceContainer : '#F5F6FA',
       borderRadius: ds(24),
-      padding: ds(20),
+      padding: ds(16),
       marginHorizontal: ds(16),
-      marginBottom: ds(14),
+      marginBottom: ds(10),
     },
     label: {
       fontSize: ds(10),

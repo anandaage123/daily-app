@@ -306,10 +306,10 @@ export default function NotesScreen() {
   const handlePinInput = async (digit: string) => {
     // Prevent input if already at 6 digits
     if (pin.length >= 6) return;
-    
+
     const newPin = pin + digit;
     setPin(newPin);
-    
+
     // Haptic feedback on input
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -327,7 +327,7 @@ export default function NotesScreen() {
           ])
         ]).start(() => setTimeout(() => setShowHint(false), 1500));
       }
-      setPin(''); 
+      setPin('');
       return;
     }
 
@@ -339,7 +339,7 @@ export default function NotesScreen() {
         setSetupStep('confirm');
         setPin('');
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      } 
+      }
       // During PIN setup - confirmation entry
       else if (setupStep === 'confirm') {
         if (newPin === tempPin) {
@@ -358,7 +358,7 @@ export default function NotesScreen() {
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           showAlert('✗ PIN Mismatch', 'The two PINs do not match. Please try again.');
         }
-      } 
+      }
       // During authentication - unlock attempt
       else {
         const saved = await AsyncStorage.getItem('@journal_pin_v3');
@@ -593,9 +593,9 @@ export default function NotesScreen() {
             </View>
             <View style={s.keypad}>
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => (
-                <TouchableOpacity 
-                  key={d} 
-                  style={s.keypadBtn} 
+                <TouchableOpacity
+                  key={d}
+                  style={s.keypadBtn}
                   onPress={() => handlePinInput(d.toString())}
                   activeOpacity={0.6}
                 >
@@ -604,14 +604,14 @@ export default function NotesScreen() {
               ))}
               {/* bottom row: spacer | 0 | backspace */}
               <View style={[s.keypadBtn, { backgroundColor: 'transparent', elevation: 0 }]} />
-              <TouchableOpacity 
-                style={s.keypadBtn} 
+              <TouchableOpacity
+                style={s.keypadBtn}
                 onPress={() => handlePinInput('0')}
                 activeOpacity={0.6}
               >
                 <Text style={s.keypadText}>0</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[s.keypadBtn, { backgroundColor: pin.length === 0 ? surfaceVariant + '50' : surfaceVariant }]}
                 onPress={handleBackspace}
                 activeOpacity={0.6}
@@ -1498,7 +1498,7 @@ export default function NotesScreen() {
             </TouchableOpacity>
 
             <View style={{ height: 1.5, backgroundColor: outlineColor, marginVertical: 18, opacity: 0.5 }} />
-            
+
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                 <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#FF6B6B15', justifyContent: 'center', alignItems: 'center' }}>
@@ -1509,7 +1509,7 @@ export default function NotesScreen() {
                   <Text style={{ fontSize: 12, color: secondaryText }}>Cycle tracking and predictions</Text>
                 </View>
               </View>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setPeriodTrackerEnabled(!periodTrackerEnabled);

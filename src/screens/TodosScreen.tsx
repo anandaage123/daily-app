@@ -12,6 +12,7 @@ import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, Dimensions, StatusBar, KeyboardAvoidingView,
   Platform, Modal, Animated, Easing, Pressable, ScrollView, Share,
+  LayoutAnimation,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -46,10 +47,7 @@ async function scheduleDueNotification(id: string, text: string, dueDate: number
   await Notifications.scheduleNotificationAsync({
     identifier: id,
     content: { title: '📋 Todo Due', body: text, sound: true },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: trigger,
-    },
+    trigger: trigger,
   });
 }
 
@@ -145,37 +143,47 @@ interface TodoItemProps {
 const TodoItem = React.memo(({
   item, onToggle, onToggleSubtask, onDelete, onEdit, onArchive, colors, isDark, index, entryAnim,
 }: TodoItemProps) => {
+  const slideIn = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [40 + index * 8, 0] });
+  const fadeIn = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+
+  if ('isHeader' in item) {
+    return (
+      <Animated.View style={[iStyles.headerRow, { opacity: fadeIn, transform: [{ translateX: slideIn }] }]}>
+        <Text style={[iStyles.headerTxt, { color: colors.textVariant }]}>
+          {item.title === 'SHOPPING' ? '🛒 ' : '✦ '}{item.title}
+        </Text>
+        <View style={[iStyles.headerLine, { backgroundColor: colors.textVariant + '15' }]} />
+      </Animated.View>
+    );
+  }
+
+  const isShopping = item.tag === 'Shopping';
   const [expanded, setExpanded] = useState(false);
   const checkAnim = useRef(new Animated.Value(item.completed ? 1 : 0)).current;
   const pressAnim = useRef(new Animated.Value(1)).current;
   const sparkAnim = useRef(new Animated.Value(0)).current;
   const swipeRef = useRef<Swipeable>(null);
 
-  const slideIn = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [50 + index * 10, 0] });
-  const fadeIn = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  // Remove the duplicate definitions if they were already there, but in the previous chunk I moved them up.
+  // We'll just keep the logic clean.
 
   useEffect(() => {
     Animated.spring(checkAnim, {
       toValue: item.completed ? 1 : 0, tension: 80, friction: 6, useNativeDriver: false,
     }).start();
-    if (item.completed) {
-      Animated.sequence([
-        Animated.timing(sparkAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.timing(sparkAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
-      ]).start();
-    }
   }, [item.completed]);
 
   const handleToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Animated.sequence([
-      Animated.timing(pressAnim, { toValue: 0.97, duration: 70, useNativeDriver: true }),
-      Animated.timing(pressAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
+      Animated.spring(pressAnim, { toValue: 0.95, tension: 200, friction: 15, useNativeDriver: true }),
+      Animated.spring(pressAnim, { toValue: 1, tension: 200, friction: 15, useNativeDriver: true }),
     ]).start(() => onToggle(item.id));
   };
 
   const handleRowPress = () => {
     if (item.subtasks.length > 0) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setExpanded(!expanded);
     } else {
       handleToggle();
@@ -184,7 +192,7 @@ const TodoItem = React.memo(({
 
   const checkBg = checkAnim.interpolate({ inputRange: [0, 1], outputRange: ['transparent', colors.primary] });
   const cfg = PRIORITY_CONFIG[item.priority];
-  const doneSubtasks = item.subtasks.filter(s => s.completed).length;
+  const doneSubtasks = (item.subtasks || []).filter(s => s.completed).length;
   const overdue = item.dueDate && !item.completed && item.dueDate < Date.now();
   const dueSoon = item.dueDate && !item.completed && !overdue && (item.dueDate - Date.now()) < 86_400_000;
 
@@ -232,73 +240,103 @@ const TodoItem = React.memo(({
               backgroundColor: isDark
                 ? (item.completed ? colors.surface + 'BB' : colors.surface)
                 : (item.completed ? '#F7F8FF' : '#FFFFFF'),
-              borderLeftColor: item.completed
-                ? colors.textVariant + '30'
-                : (overdue ? '#FF4757' : cfg.gradient[0]),
-            }
-          ]}>
-            {/* Checkbox */}
-            <Pressable onPress={handleToggle} hitSlop={16}>
-              <Animated.View style={[iStyles.checkbox, { borderColor: colors.primary + '55', backgroundColor: checkBg }]}>
+            }]}>
+
+            {!item.completed && !isShopping && (
+              <View style={[iStyles.priStrip, { backgroundColor: cfg.gradient[0] }]} />
+            )}
+
+            <Pressable onPress={handleToggle} hitSlop={16} style={{ marginLeft: (item.completed || isShopping) ? 0 : 4 }}>
+              <Animated.View style={[
+                iStyles.checkbox,
+                {
+                  borderColor: item.completed ? colors.primary + '33' : colors.primary + '55',
+                  backgroundColor: checkBg,
+                  borderRadius: isShopping ? 6 : 11,
+                }
+              ]}>
                 <Animated.View style={{ opacity: checkAnim, transform: [{ scale: checkAnim }] }}>
                   <Ionicons name="checkmark" size={13} color="#FFF" />
                 </Animated.View>
               </Animated.View>
             </Pressable>
 
-            {/* Body */}
             <View style={iStyles.body}>
               <Text numberOfLines={2} style={[
                 iStyles.text, { color: item.completed ? colors.textVariant : colors.text },
                 item.completed && iStyles.textDone,
+                isShopping && { fontSize: scaleFontSize(16), fontWeight: '600' }
               ]}>
                 {item.text}
               </Text>
-              <View style={iStyles.meta}>
-                <LinearGradient colors={cfg.gradient} style={iStyles.priPill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                  <Text style={iStyles.priTxt}>{cfg.emoji} {cfg.label}</Text>
-                </LinearGradient>
-                {item.dueDate && (
-                  <View style={[iStyles.duePill, { backgroundColor: overdue ? '#FF475720' : dueSoon ? '#FFA93A20' : colors.background }]}>
-                    <Ionicons name="time-outline" size={9} color={overdue ? '#FF4757' : dueSoon ? '#FFA93A' : colors.textVariant} />
-                    <Text style={[iStyles.dueTxt, { color: overdue ? '#FF4757' : dueSoon ? '#FFA93A' : colors.textVariant }]}>
-                      {new Date(item.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </Text>
-                  </View>
-                )}
-                {item.subtasks.length > 0 && (
-                  <View style={[iStyles.badge, { backgroundColor: colors.primary + '15', flexDirection: 'row', width: 'auto', paddingHorizontal: 6, gap: 4 }]}>
-                    <Text style={[iStyles.subtaskCnt, { color: colors.primary }]}>{doneSubtasks}/{item.subtasks.length}</Text>
-                    <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={10} color={colors.primary} />
-                  </View>
-                )}
-              </View>
-              {item.subtasks.length > 0 && (
+
+              {!isShopping && (
+                <View style={iStyles.meta}>
+                  <LinearGradient colors={cfg.gradient} style={iStyles.priPill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                    <Text style={iStyles.priTxt}>{cfg.emoji} {cfg.label}</Text>
+                  </LinearGradient>
+                  {item.tag && (
+                    <View style={[iStyles.tagPill, { borderColor: TAG_COLORS[item.tag] + '33', backgroundColor: TAG_COLORS[item.tag] + '10' }]}>
+                      <Text style={[iStyles.tagTxt, { color: TAG_COLORS[item.tag] }]}>#{item.tag.toUpperCase()}</Text>
+                    </View>
+                  )}
+                  {item.dueDate && (
+                    <View style={[iStyles.duePill, { backgroundColor: overdue ? '#FF475720' : dueSoon ? '#FFA93A20' : colors.background }]}>
+                      <Ionicons name="time-outline" size={9} color={overdue ? '#FF4757' : dueSoon ? '#FFA93A' : colors.textVariant} />
+                      <Text style={[iStyles.dueTxt, { color: overdue ? '#FF4757' : dueSoon ? '#FFA93A' : colors.textVariant }]}>
+                        {new Date(item.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {item.subtasks?.length > 0 && (
+                <View style={[iStyles.badge, { backgroundColor: colors.primary + '15', flexDirection: 'row', width: 'auto', paddingHorizontal: 6, gap: 4, marginTop: isShopping ? 4 : 0 }]}>
+                  <Text style={[iStyles.subtaskCnt, { color: colors.primary }]}>{doneSubtasks}/{item.subtasks.length}</Text>
+                  <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={10} color={colors.primary} />
+                </View>
+              )}
+
+              {item.subtasks?.length > 0 && (
                 <View style={[iStyles.subBar, { backgroundColor: colors.background }]}>
                   <View style={[iStyles.subFill, { backgroundColor: colors.primary, width: `${(doneSubtasks / item.subtasks.length) * 100}%` }]} />
                 </View>
               )}
-              {item.subtasks.length > 0 && expanded && (
-                <View style={{ marginTop: 14, paddingLeft: 4, gap: 12 }}>
+
+              {item.subtasks?.length > 0 && expanded && (
+                <View style={{ marginTop: 14, paddingLeft: 4, gap: 10 }}>
                   {item.subtasks.map(st => (
                     <TouchableOpacity
                       key={st.id}
-                      style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}
-                      onPress={() => onToggleSubtask?.(item.id, st.id)}
-                      hitSlop={12}
+                      style={[
+                        iStyles.subtaskRow,
+                        {
+                          backgroundColor: st.completed ? 'transparent' : (isDark ? colors.background + '44' : '#F0F2FF'),
+                          paddingHorizontal: 8,
+                          paddingVertical: 8,
+                          borderRadius: 10,
+                        }
+                      ]}
+                      onPress={() => {
+                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                        onToggleSubtask?.(item.id, st.id);
+                      }}
+                      hitSlop={8}
                     >
                       <Ionicons
-                        name={st.completed ? 'checkbox' : 'square-outline'}
-                        size={22}
+                        name={st.completed ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={20}
                         color={st.completed ? colors.primary : colors.textVariant + '80'}
                       />
                       <Text style={{
-                        marginLeft: 12,
+                        marginLeft: 10,
                         flex: 1,
-                        fontSize: scaleFontSize(15),
+                        fontSize: scaleFontSize(14),
                         color: st.completed ? colors.textVariant : colors.text,
                         textDecorationLine: st.completed ? 'line-through' : 'none',
-                        opacity: st.completed ? 0.5 : 1
+                        opacity: st.completed ? 0.5 : 1,
+                        fontWeight: '500',
                       }}>
                         {st.text}
                       </Text>
@@ -308,7 +346,6 @@ const TodoItem = React.memo(({
               )}
             </View>
 
-            {/* Spark */}
             <Animated.View style={{ opacity: sparkAnim, position: 'absolute', right: 12 }}>
               <Text style={{ fontSize: 17 }}>✨</Text>
             </Animated.View>
@@ -320,11 +357,13 @@ const TodoItem = React.memo(({
 });
 
 const iStyles = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'flex-start', padding: 14, borderRadius: 18, marginBottom: 10, borderLeftWidth: 4, ...Shadows.soft },
-  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginRight: 12, marginTop: 2 },
+  card: { flexDirection: 'row', alignItems: 'flex-start', padding: 16, paddingLeft: 15, borderRadius: 20, marginBottom: 14, ...Shadows.soft, overflow: 'hidden' },
+  priStrip: { position: 'absolute', left: 0, top: 15, bottom: 15, width: 3.5, borderRadius: 2 },
+  checkbox: { width: 22, height: 22, justifyContent: 'center', alignItems: 'center', marginRight: 12, marginTop: 2, borderWidth: 1.5 },
   body: { flex: 1 },
-  text: { fontSize: scaleFontSize(15), fontWeight: '600', lineHeight: 22, marginBottom: 6 },
+  text: { fontSize: scaleFontSize(15), fontWeight: '700', lineHeight: 22, marginBottom: 8, letterSpacing: -0.2 },
   textDone: { textDecorationLine: 'line-through', opacity: 0.45 },
+  subtaskRow: { flexDirection: 'row', alignItems: 'center' },
   meta: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, alignItems: 'center' },
   priPill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 },
   priTxt: { fontSize: scaleFontSize(9), fontWeight: '800', color: '#FFF', letterSpacing: 0.3 },
@@ -340,6 +379,9 @@ const iStyles = StyleSheet.create({
   swipeLeft: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   swipeBtn: { justifyContent: 'center', alignItems: 'center', width: 70, alignSelf: 'stretch', borderRadius: 14, gap: 3, marginHorizontal: 3 },
   swipeTxt: { color: '#FFF', fontSize: scaleFontSize(10), fontWeight: '700' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 12, paddingHorizontal: 4 },
+  headerTxt: { fontSize: scaleFontSize(10), fontWeight: '900', letterSpacing: 1.5 },
+  headerLine: { flex: 1, height: 1, marginLeft: 12, opacity: 0.5 },
 });
 
 // ─── Undo Toast ───────────────────────────────────────────────────────────────
@@ -368,45 +410,71 @@ const tStyles = StyleSheet.create({
 interface ModalProps {
   visible: boolean;
   initial?: Todo | null;
+  initialTag?: Tag;
   onClose: () => void;
   onSave: (t: Todo) => void;
   onSaveAndNext: (t: Todo) => void;
+  onSaveMultiple: (ts: Todo[]) => void;
   colors: any;
   isDark: boolean;
 }
 
-function TodoModal({ visible, initial, onClose, onSave, onSaveAndNext, colors, isDark }: ModalProps) {
+function TodoModal({ visible, initial, initialTag, onClose, onSave, onSaveAndNext, onSaveMultiple, colors, isDark }: ModalProps) {
   const isEdit = !!initial;
   const [text, setText] = useState('');
   const [priority, setPriority] = useState<Priority>('med');
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [tag, setTag] = useState<Tag | undefined>(initialTag);
   const [showPicker, setShowPicker] = useState(false);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [subInput, setSubInput] = useState('');
   const slideAnim = useRef(new Animated.Value(600)).current;
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (visible) {
       if (initial) {
         setText(initial.text); setPriority(initial.priority);
         setSubtasks(initial.subtasks || []);
+        setTag(initial.tag);
         setDueDate(initial.dueDate ? new Date(initial.dueDate) : undefined);
       } else {
         setText(''); setPriority('med');
+        setTag(initialTag);
         setDueDate(undefined); setSubtasks([]);
       }
-      Animated.spring(slideAnim, { toValue: 0, tension: 55, friction: 9, useNativeDriver: true }).start();
+      Animated.spring(slideAnim, { toValue: 0, tension: 120, friction: 12, velocity: 1.5, useNativeDriver: true }).start();
     } else {
-      Animated.timing(slideAnim, { toValue: 600, duration: 220, easing: Easing.in(Easing.ease), useNativeDriver: true }).start();
+      Animated.spring(slideAnim, { toValue: 600, tension: 100, friction: 15, useNativeDriver: true }).start();
     }
-  }, [visible, initial]);
+  }, [visible, initial, initialTag]);
 
   const build = (): Todo => ({
     id: initial?.id ?? genId(),
     text: text.trim(), completed: initial?.completed ?? false, archived: initial?.archived ?? false,
-    priority, dueDate: dueDate?.getTime(),
+    priority, dueDate: dueDate?.getTime(), tag,
     subtasks, createdAt: initial?.createdAt ?? Date.now(), completedAt: initial?.completedAt,
   });
+
+  const handleSaveItems = () => {
+    if (!text.trim()) return;
+    if (tag === 'Shopping') {
+      const lines = text.split('\n').filter(l => l.trim().length > 0);
+      const newItems = lines.map((line, idx) => ({
+        ...build(),
+        id: genId(),
+        text: line.trim(),
+        createdAt: Date.now() + idx
+      }));
+      onSaveMultiple(newItems);
+    } else {
+      onSave(build());
+    }
+    setText('');
+    setSubtasks([]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (tag !== 'Shopping') onClose();
+  };
 
   const canSave = text.trim().length > 0;
 
@@ -417,110 +485,125 @@ function TodoModal({ visible, initial, onClose, onSave, onSaveAndNext, colors, i
   };
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={mStyles.overlay}>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={mStyles.overlay}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
         <Pressable style={{ flex: 1 }} onPress={onClose} />
         <Animated.View style={[mStyles.sheet, { backgroundColor: colors.surface, transform: [{ translateY: slideAnim }] }]}>
           <View style={mStyles.handle} />
           <View style={mStyles.hdr}>
-            <Text style={[mStyles.title, { color: colors.text }]}>{isEdit ? '✏️ Edit Todo' : '✦ New Todo'}</Text>
+            <Text style={[mStyles.title, { color: colors.text }]}>{isEdit ? '✏️ Edit Task' : '✦ New Task'}</Text>
             <TouchableOpacity onPress={onClose} style={[mStyles.closeBtn, { backgroundColor: colors.background }]}>
               <Ionicons name="close" size={18} color={colors.textVariant} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <View style={mStyles.modeRow}>
+            <TouchableOpacity
+              style={[mStyles.modeBtn, { backgroundColor: tag === 'Shopping' ? colors.primary + '15' : colors.background }]}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTag(tag === 'Shopping' ? undefined : 'Shopping'); }}
+            >
+              <Ionicons name="cart-outline" size={16} color={tag === 'Shopping' ? colors.primary : colors.textVariant} />
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={[mStyles.modeTitle, { color: tag === 'Shopping' ? colors.primary : colors.text }]}>Grocery Mode</Text>
+                <Text style={mStyles.modeSub}>Type your list like a notepad</Text>
+              </View>
+              {tag === 'Shopping' && <Ionicons name="checkmark-circle" size={16} color={colors.primary} />}
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
             <TextInput
-              style={[mStyles.input, { backgroundColor: colors.background, color: colors.text, marginBottom: 20 }]}
-              placeholder="What needs to be done?"
+              ref={inputRef}
+              style={[
+                mStyles.input,
+                { backgroundColor: colors.background, color: colors.text, marginBottom: 16 },
+                tag === 'Shopping' && { minHeight: 140, textAlignVertical: 'top' }
+              ]}
+              placeholder={tag === 'Shopping' ? "Milk\nEggs\nBread..." : "What needs to be done?"}
               placeholderTextColor={colors.textVariant + '55'}
-              value={text} onChangeText={setText} autoFocus={!isEdit} returnKeyType="done" maxLength={200}
+              multiline={tag === 'Shopping'}
+              value={text} onChangeText={setText} autoFocus={!isEdit}
+              maxLength={2000}
             />
 
-            {/* Priority */}
-            <Text style={[mStyles.lbl, { color: colors.textVariant }]}>PRIORITY</Text>
-            <View style={mStyles.priRow}>
-              {(['low', 'med', 'high'] as Priority[]).map(p => {
-                const c = PRIORITY_CONFIG[p]; const active = priority === p;
-                return (
-                  <TouchableOpacity key={p}
-                    onPress={() => { Haptics.selectionAsync(); setPriority(p); }}
-                    style={[mStyles.priBtn, { borderColor: active ? c.gradient[0] : colors.background, backgroundColor: active ? c.gradient[0] + '18' : colors.background }]}
-                  >
-                    {active
-                      ? <LinearGradient colors={c.gradient} style={mStyles.pDot} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
-                      : <View style={[mStyles.pDot, { backgroundColor: colors.surface }]} />}
-                    <Text style={[mStyles.priBtnTxt, { color: active ? c.gradient[0] : colors.textVariant }]}>{c.emoji} {c.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Due date */}
-            <Text style={[mStyles.lbl, { color: colors.textVariant }]}>DUE DATE</Text>
-            <View style={mStyles.dateRow}>
-              <TouchableOpacity onPress={() => setShowPicker(true)}
-                style={[mStyles.dateBtn, { backgroundColor: colors.background, borderColor: dueDate ? colors.primary : colors.background }]}
-              >
-                <Ionicons name="calendar-outline" size={15} color={dueDate ? colors.primary : colors.textVariant} />
-                <Text style={[mStyles.dateTxt, { color: dueDate ? colors.primary : colors.textVariant }]}>
-                  {dueDate ? dueDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'Set due date'}
-                </Text>
-              </TouchableOpacity>
-              {dueDate && (
-                <TouchableOpacity onPress={() => setDueDate(undefined)} style={[mStyles.dateClear, { backgroundColor: colors.background }]}>
-                  <Ionicons name="close" size={15} color={colors.textVariant} />
-                </TouchableOpacity>
-              )}
-            </View>
-            {showPicker && (
-              <DateTimePicker value={dueDate ?? new Date()} mode="date" minimumDate={new Date()}
-                onChange={(_, d) => { setShowPicker(false); if (d) setDueDate(d); }} />
-            )}
-
-            {/* Subtasks */}
-            <Text style={[mStyles.lbl, { color: colors.textVariant }]}>SUBTASKS</Text>
-            {subtasks.map(st => (
-              <View key={st.id} style={[mStyles.subRow, { backgroundColor: colors.background }]}>
-                <TouchableOpacity onPress={() => setSubtasks(s => s.map(x => x.id === st.id ? { ...x, completed: !x.completed } : x))}>
-                  <Ionicons name={st.completed ? 'checkbox' : 'square-outline'} size={17} color={st.completed ? colors.primary : colors.textVariant} />
-                </TouchableOpacity>
-                <Text style={[mStyles.subTxt, { color: colors.text }, st.completed && { textDecorationLine: 'line-through', opacity: 0.5 }]}>{st.text}</Text>
-                <TouchableOpacity onPress={() => setSubtasks(s => s.filter(x => x.id !== st.id))}>
-                  <Ionicons name="close-circle-outline" size={15} color={colors.textVariant} />
-                </TouchableOpacity>
-              </View>
-            ))}
-            <View style={mStyles.subInputRow}>
-              <TextInput
-                style={[mStyles.subInput, { backgroundColor: colors.background, color: colors.text, flex: 1 }]}
-                placeholder="Add subtask…" placeholderTextColor={colors.textVariant + '50'}
-                value={subInput} onChangeText={setSubInput}
-                onSubmitEditing={addSub} returnKeyType="done"
-              />
-              <TouchableOpacity onPress={addSub} style={[mStyles.subAddBtn, { backgroundColor: colors.primary + '20' }]}>
-                <Ionicons name="add" size={20} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Save & Add Next — only in add mode */}
-            {!isEdit && (
-              <TouchableOpacity
-                onPress={() => canSave && onSaveAndNext(build())}
-                activeOpacity={canSave ? 0.8 : 1}
-                style={{ marginBottom: 10, marginTop: 16, opacity: canSave ? 1 : 0.35 }}
-              >
-                <View style={[mStyles.nextBtn, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '45' }]}>
-                  <Ionicons name="add-circle-outline" size={17} color={colors.primary} style={{ marginRight: 7 }} />
-                  <Text style={[mStyles.nextTxt, { color: colors.primary }]}>Save & Add Next</Text>
+            {tag !== 'Shopping' && (
+              <>
+                {/* Priority */}
+                <Text style={[mStyles.lbl, { color: colors.textVariant }]}>PRIORITY</Text>
+                <View style={mStyles.priRow}>
+                  {(['low', 'med', 'high'] as Priority[]).map(p => {
+                    const c = PRIORITY_CONFIG[p]; const active = priority === p;
+                    return (
+                      <TouchableOpacity key={p}
+                        onPress={() => { Haptics.selectionAsync(); setPriority(p); }}
+                        style={[mStyles.priBtn, { borderColor: active ? c.gradient[0] : colors.background, backgroundColor: active ? c.gradient[0] + '18' : colors.background }]}
+                      >
+                        {active
+                          ? <LinearGradient colors={c.gradient} style={mStyles.pDot} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
+                          : <View style={[mStyles.pDot, { backgroundColor: colors.surface }]} />}
+                        <Text style={[mStyles.priBtnTxt, { color: active ? c.gradient[0] : colors.textVariant }]}>{c.emoji} {c.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              </TouchableOpacity>
+
+                {/* Due date */}
+                <Text style={[mStyles.lbl, { color: colors.textVariant }]}>DUE DATE</Text>
+                <View style={mStyles.dateRow}>
+                  <TouchableOpacity onPress={() => setShowPicker(true)}
+                    style={[mStyles.dateBtn, { backgroundColor: colors.background, borderColor: dueDate ? colors.primary : colors.background }]}
+                  >
+                    <Ionicons name="calendar-outline" size={15} color={dueDate ? colors.primary : colors.textVariant} />
+                    <Text style={[mStyles.dateTxt, { color: dueDate ? colors.primary : colors.textVariant }]}>
+                      {dueDate ? dueDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'Set due date'}
+                    </Text>
+                  </TouchableOpacity>
+                  {dueDate && (
+                    <TouchableOpacity onPress={() => setDueDate(undefined)} style={[mStyles.dateClear, { backgroundColor: colors.background }]}>
+                      <Ionicons name="close" size={15} color={colors.textVariant} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {showPicker && (
+                  <DateTimePicker value={dueDate ?? new Date()} mode="date" minimumDate={new Date()}
+                    onChange={(_, d) => { setShowPicker(false); if (d) setDueDate(d); }} />
+                )}
+
+                {/* Subtasks */}
+                <Text style={[mStyles.lbl, { color: colors.textVariant }]}>SUBTASKS</Text>
+                {subtasks.map((st, idx) => (
+                  <View key={st.id || idx} style={[mStyles.subRow, { backgroundColor: colors.background }]}>
+                    <TouchableOpacity onPress={() => setSubtasks(s => s.map(x => x.id === st.id ? { ...x, completed: !x.completed } : x))}>
+                      <Ionicons name={st.completed ? 'checkbox' : 'square-outline'} size={17} color={st.completed ? colors.primary : colors.textVariant} />
+                    </TouchableOpacity>
+                    <Text style={[mStyles.subTxt, { color: colors.text }, st.completed && { textDecorationLine: 'line-through', opacity: 0.5 }]}>{st.text}</Text>
+                    <TouchableOpacity onPress={() => setSubtasks(s => s.filter(x => x.id !== st.id))}>
+                      <Ionicons name="close-circle-outline" size={15} color={colors.textVariant} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                <View style={mStyles.subInputRow}>
+                  <TextInput
+                    style={[mStyles.subInput, { backgroundColor: colors.background, color: colors.text, flex: 1 }]}
+                    placeholder="Add subtask…" placeholderTextColor={colors.textVariant + '50'}
+                    value={subInput} onChangeText={setSubInput}
+                    onSubmitEditing={addSub} returnKeyType="done"
+                  />
+                  <TouchableOpacity onPress={addSub} style={[mStyles.subAddBtn, { backgroundColor: colors.primary + '20' }]}>
+                    <Ionicons name="add" size={20} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              </>
             )}
 
-            <TouchableOpacity onPress={() => canSave && onSave(build())} activeOpacity={canSave ? 0.85 : 1} style={{ opacity: canSave ? 1 : 0.35 }}>
+            <TouchableOpacity onPress={() => canSave && handleSaveItems()} activeOpacity={canSave ? 0.85 : 1} style={{ opacity: canSave ? 1 : 0.4, marginTop: tag === 'Shopping' ? 8 : 12 }}>
               <LinearGradient colors={[colors.primary, colors.primaryLight || colors.primary + 'CC']} style={mStyles.saveBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                 <Ionicons name={isEdit ? 'checkmark-done-outline' : 'checkmark-circle-outline'} size={19} color="#FFF" style={{ marginRight: 8 }} />
-                <Text style={mStyles.saveTxt}>{isEdit ? 'Save Changes' : 'Add Todo'}</Text>
+                <Text style={mStyles.saveTxt}>{isEdit ? 'Save Changes' : (tag === 'Shopping' ? 'Add All Items' : 'Add Task')}</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -561,6 +644,10 @@ const mStyles = StyleSheet.create({
   nextTxt: { fontSize: scaleFontSize(15), fontWeight: '800' },
   saveBtn: { flexDirection: 'row', height: 54, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   saveTxt: { color: '#FFF', fontWeight: '800', fontSize: scaleFontSize(16) },
+  modeRow: { marginBottom: 18, flexDirection: 'row', gap: 10, alignItems: 'center' },
+  modeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, borderWidth: 1.5, borderColor: 'transparent' },
+  modeTitle: { fontSize: scaleFontSize(14), fontWeight: '700' },
+  modeSub: { fontSize: scaleFontSize(10), color: '#5D5A88', marginTop: 1 },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -572,7 +659,14 @@ export default function TodosScreen() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [archived, setArchived] = useState<Todo[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalTag, setModalTag] = useState<Tag | undefined>();
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+
+  const openAction = (t?: Tag) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setModalTag(t);
+    setModalOpen(true);
+  };
   const [clearOpen, setClearOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -583,22 +677,24 @@ export default function TodosScreen() {
   const entryAnim = useRef(new Animated.Value(0)).current;
   const headerAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const groceryProgressAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const toastAnim = useRef(new Animated.Value(0)).current;
   const fabAnim = useRef(new Animated.Value(0)).current;
+  const successAnim = useRef(new Animated.Value(1)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Entry animation
   useEffect(() => {
     entryAnim.setValue(0); headerAnim.setValue(0); fabAnim.setValue(0);
-    Animated.stagger(70, [
-      Animated.spring(headerAnim, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
-      Animated.spring(entryAnim, { toValue: 1, tension: 50, friction: 9, useNativeDriver: true }),
-      Animated.spring(fabAnim, { toValue: 1, tension: 70, friction: 7, useNativeDriver: true }),
+    Animated.stagger(30, [
+      Animated.spring(headerAnim, { toValue: 1, tension: 130, friction: 10, useNativeDriver: true }),
+      Animated.spring(entryAnim, { toValue: 1, tension: 120, friction: 11, useNativeDriver: true }),
+      Animated.spring(fabAnim, { toValue: 1, tension: 150, friction: 9, useNativeDriver: true }),
     ]).start();
     Animated.loop(Animated.sequence([
-      Animated.timing(pulseAnim, { toValue: 1.033, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(pulseAnim, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1.033, duration: 1000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1, duration: 1000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ])).start();
   }, []);
 
@@ -614,8 +710,20 @@ export default function TodosScreen() {
   };
 
   const animProg = (data: Todo[]) => {
-    const pct = data.length > 0 ? data.filter(t => t.completed).length / data.length : 0;
-    Animated.timing(progressAnim, { toValue: pct, duration: 700, easing: Easing.out(Easing.ease), useNativeDriver: false }).start();
+    const rlt = data.filter(t => t.tag !== 'Shopping');
+    const gro = data.filter(t => t.tag === 'Shopping');
+
+    const rltPct = rlt.length > 0 ? rlt.filter(t => t.completed).length / rlt.length : 0;
+    const groPct = gro.length > 0 ? gro.filter(t => t.completed).length / gro.length : 0;
+
+    Animated.parallel([
+      Animated.spring(progressAnim, { toValue: rltPct, tension: 140, friction: 15, useNativeDriver: false }),
+      Animated.spring(groceryProgressAnim, { toValue: groPct, tension: 140, friction: 15, useNativeDriver: false }),
+      Animated.sequence([
+        Animated.spring(successAnim, { toValue: 1.04, tension: 200, friction: 10, useNativeDriver: true }),
+        Animated.spring(successAnim, { toValue: 1, tension: 150, friction: 12, useNativeDriver: true }),
+      ])
+    ]).start();
   };
 
   const saveAll = useCallback(async (active: Todo[], arch: Todo[] = archived) => {
@@ -637,9 +745,9 @@ export default function TodosScreen() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ msg, undo });
     toastAnim.setValue(0);
-    Animated.spring(toastAnim, { toValue: 1, tension: 80, friction: 8, useNativeDriver: true }).start();
+    Animated.spring(toastAnim, { toValue: 1, tension: 120, friction: 10, useNativeDriver: true }).start();
     toastTimer.current = setTimeout(() => {
-      Animated.timing(toastAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => setToast(null));
+      Animated.timing(toastAnim, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => setToast(null));
     }, 4200);
   };
 
@@ -655,10 +763,23 @@ export default function TodosScreen() {
   const saveAndNext = useCallback((todo: Todo) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (todo.dueDate) scheduleDueNotification(todo.id, todo.text, todo.dueDate);
-    saveAll(sort([todo, ...todos]));
-    setEditingTodo(null);
+    const updated = sort([todo, ...todos]);
+    saveAll(updated);
+    // Modal state is now partially managed inside TodoModal for "Save & Add Next" 
+    // to avoid flickering if it's a grocery list.
+    if (todo.tag !== 'Shopping') {
+      setModalOpen(false);
+      setEditingTodo(null);
+    }
+  }, [todos, saveAll]);
+
+  const saveMultiple = useCallback((newItems: Todo[]) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    newItems.forEach(t => { if (t.dueDate) scheduleDueNotification(t.id, t.text, t.dueDate); });
+    const updated = sort([...newItems, ...todos]);
+    saveAll(updated);
     setModalOpen(false);
-    setTimeout(() => setModalOpen(true), 60);
+    setEditingTodo(null);
   }, [todos, saveAll]);
 
   const toggleTodo = useCallback((id: string) => {
@@ -734,19 +855,65 @@ export default function TodosScreen() {
     return true;
   }), [todos, showDone, filterPri, search]);
 
-  const active = filtered.filter(t => !t.completed);
-  const done = filtered.filter(t => t.completed);
-  const listData = [...active, ...done];
-  const doneCount = todos.filter(t => t.completed).length;
-  const total = todos.length;
+  const active = useMemo(() => filtered.filter(t => !t.completed), [filtered]);
+  const done = useMemo(() => filtered.filter(t => t.completed), [filtered]);
+
+  const listData = useMemo(() => {
+    const activeItems = filtered.filter(t => !t.completed);
+    const doneItems = filtered.filter(t => t.completed);
+
+    // 1. Group items by tag
+    const groups: Record<string, Todo[]> = {};
+    activeItems.forEach(t => {
+      const tag = t.tag || 'Daily Tasks';
+      if (!groups[tag]) groups[tag] = [];
+      groups[tag].push(t);
+    });
+
+    // 2. Build the list with headers
+    let result: (Todo | { isHeader: boolean; title: string })[] = [];
+
+    // Shopping first
+    const sortedTags = Object.keys(groups).sort((a, b) => {
+      if (a === 'Shopping') return -1;
+      if (b === 'Shopping') return 1;
+      return a.localeCompare(b);
+    });
+
+    sortedTags.forEach(tag => {
+      result.push({ isHeader: true, title: tag.toUpperCase() });
+      result.push(...groups[tag]);
+    });
+
+    // 3. Completed at end
+    if (doneItems.length > 0) {
+      result.push({ isHeader: true, title: 'COMPLETED' });
+      result.push(...doneItems);
+    }
+    return result;
+  }, [filtered]);
+
+  const ritualTodos = useMemo(() => todos.filter(t => t.tag !== 'Shopping'), [todos]);
+  const groceryTodos = useMemo(() => todos.filter(t => t.tag === 'Shopping'), [todos]);
+
+  const ritualDone = useMemo(() => ritualTodos.filter(t => t.completed).length, [ritualTodos]);
+  const groceryDone = useMemo(() => groceryTodos.filter(t => t.completed).length, [groceryTodos]);
+
+  const total = ritualTodos.length;
+  const gTotal = groceryTodos.length;
 
   const progressWidth = progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+  const groceryProgressWidth = groceryProgressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
   const headerSlide = headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-26, 0] });
   const fabScale = fabAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
 
   const getGreeting = () => {
     const h = new Date().getHours();
-    if (h < 12) return '☀️ Good morning'; if (h < 17) return '⚡ Good afternoon'; return '🌙 Good evening';
+    if (h < 5) return '✨ Night owl?';
+    if (h < 12) return '☀️ Rise and shine';
+    if (h < 17) return '⚡ Good afternoon';
+    if (h < 21) return '🌙 Good evening';
+    return '🌌 Ready for sleep?';
   };
 
   return (
@@ -758,7 +925,7 @@ export default function TodosScreen() {
 
         <FlatList
           data={listData}
-          keyExtractor={item => item.id}
+          keyExtractor={item => 'isHeader' in item ? `header-${item.title}` : item.id}
           contentContainerStyle={s.listContent}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
@@ -769,7 +936,10 @@ export default function TodosScreen() {
                 <View style={s.headerTop}>
                   <View>
                     <Text style={[s.greeting, { color: colors.textVariant }]}>{getGreeting()}</Text>
-                    <Text style={[s.title, { color: colors.text }]}>My Todos</Text>
+                    <Text style={[s.title, { color: colors.text }]}>Ritual List</Text>
+                    <Text style={[s.dateSub, { color: colors.textVariant + '99' }]}>
+                      {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                    </Text>
                   </View>
                   <View style={s.headerBtns}>
                     <TouchableOpacity onPress={exportAll} style={[s.hBtn, { backgroundColor: colors.surface }]}>
@@ -785,41 +955,69 @@ export default function TodosScreen() {
                 </View>
 
                 {/* Progress */}
-                <Animated.View style={[s.progCard, { backgroundColor: colors.surface, transform: [{ scale: pulseAnim }] }]}>
+                {/* Dual Progress */}
+                <Animated.View style={[s.progCard, {
+                  backgroundColor: colors.surface,
+                  transform: [{ scale: Animated.multiply(pulseAnim, successAnim) }]
+                }]}>
                   <LinearGradient colors={isDark ? ['#1A1A2E', '#16213E'] : ['#F8F9FF', '#EEF0FF']} style={s.progInner}>
+                    {/* Ritual Progress */}
                     <View style={s.progTop}>
                       <View>
-                        <Text style={[s.progLbl, { color: colors.textVariant }]}>PROGRESS</Text>
+                        <Text style={[s.progLbl, { color: colors.textVariant }]}>RITUAL TASKS</Text>
                         <Text style={[s.progFrac, { color: colors.text }]}>
-                          {doneCount}<Text style={{ color: colors.textVariant, fontSize: scaleFontSize(15) }}>/{total}</Text>
+                          {ritualDone}<Text style={{ color: colors.textVariant, fontSize: scaleFontSize(14) }}>/{total}</Text>
                         </Text>
                       </View>
                       <Text style={[s.progPct, { color: colors.primary }]}>
-                        {total > 0 ? Math.round((doneCount / total) * 100) : 0}%
+                        {total > 0 ? Math.round((ritualDone / total) * 100) : 0}%
                       </Text>
                     </View>
-                    <View style={[s.progBg, { backgroundColor: colors.background }]}>
+                    <View style={[s.progBg, { backgroundColor: colors.background, marginBottom: gTotal > 0 ? 16 : 0 }]}>
                       <Animated.View style={[s.progFill, { width: progressWidth }]}>
                         <LinearGradient colors={[colors.primary, colors.primaryLight || colors.primary + 'AA']} style={{ flex: 1, borderRadius: 5 }} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} />
                       </Animated.View>
                     </View>
-                    {total > 0 && doneCount === total && (
-                      <Text style={[s.allDone, { color: colors.primary }]}>🎉 All done! You crushed it.</Text>
+
+                    {/* Grocery Progress (Conditional) */}
+                    {gTotal > 0 && (
+                      <>
+                        <View style={s.progTop}>
+                          <View>
+                            <Text style={[s.progLbl, { color: colors.textVariant }]}>SHOPPING LIST</Text>
+                            <Text style={[s.progFrac, { color: colors.text, fontSize: scaleFontSize(18) }]}>
+                              {groceryDone}<Text style={{ color: colors.textVariant, fontSize: scaleFontSize(12) }}>/{gTotal}</Text>
+                            </Text>
+                          </View>
+                          <Text style={[s.progPct, { color: colors.secondary || '#FFA93A', fontSize: scaleFontSize(16) }]}>
+                            {Math.round((groceryDone / gTotal) * 100)}%
+                          </Text>
+                        </View>
+                        <View style={[s.progBg, { backgroundColor: colors.background }]}>
+                          <Animated.View style={[s.progFill, { width: groceryProgressWidth }]}>
+                            <LinearGradient colors={[colors.secondary || '#FFA93A', '#FFD700']} style={{ flex: 1, borderRadius: 5 }} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} />
+                          </Animated.View>
+                        </View>
+                      </>
+                    )}
+
+                    {total > 0 && ritualDone === total && (
+                      <Text style={[s.allDone, { color: colors.primary, marginTop: 10 }]}>🎉 Rituals crushed!</Text>
                     )}
                   </LinearGradient>
                 </Animated.View>
 
                 {/* Search */}
-                <View style={[s.searchBar, { backgroundColor: colors.surface }]}>
-                  <Ionicons name="search-outline" size={15} color={colors.textVariant} />
+                <View style={[s.searchBar, { backgroundColor: isDark ? colors.surface + '88' : '#FFFFFF', borderBottomWidth: 1, borderBottomColor: colors.primary + '15' }]}>
+                  <Ionicons name="search" size={16} color={colors.primary} />
                   <TextInput
                     style={[s.searchInput, { color: colors.text }]}
-                    placeholder="Search todos…" placeholderTextColor={colors.textVariant + '55'}
+                    placeholder="Find a task..." placeholderTextColor={colors.textVariant + '66'}
                     value={search} onChangeText={setSearch} returnKeyType="search"
                   />
                   {search.length > 0 && (
                     <TouchableOpacity onPress={() => setSearch('')}>
-                      <Ionicons name="close-circle" size={15} color={colors.textVariant} />
+                      <Ionicons name="close-circle-sharp" size={18} color={colors.textVariant} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -864,22 +1062,38 @@ export default function TodosScreen() {
           }}
           ListEmptyComponent={
             <Animated.View style={[s.empty, { opacity: entryAnim }]}>
-              <Text style={{ fontSize: 50, marginBottom: 12 }}>🗒️</Text>
-              <Text style={[s.emptyTitle, { color: colors.text }]}>Nothing here yet</Text>
-              <Text style={[s.emptySub, { color: colors.textVariant }]}>Tap ＋ to add your first todo.</Text>
+              <LinearGradient colors={[colors.primary + '05', colors.primary + '15']} style={s.emptyCircle}>
+                <Ionicons name="sparkles-outline" size={40} color={colors.primary} />
+              </LinearGradient>
+              <Text style={[s.emptyTitle, { color: colors.text }]}>All clear today</Text>
+              <Text style={[s.emptySub, { color: colors.textVariant }]}>No tasks found. Enjoy your focus time or add a new goal.</Text>
             </Animated.View>
           }
           ListFooterComponent={<View style={{ height: 110 }} />}
         />
 
-        {/* FAB */}
-        <Animated.View style={[s.fab, { transform: [{ scale: fabScale }] }]}>
-          <TouchableOpacity onPress={() => { setEditingTodo(null); setModalOpen(true); }} activeOpacity={0.85} style={{ flex: 1 }}>
-            <LinearGradient colors={[colors.primary, colors.primaryLight || colors.primary + 'DD']} style={s.fabGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-              <Ionicons name="add" size={28} color="#FFF" />
+        {/* Direct Action FABs */}
+        <View style={s.fabBase}>
+          <TouchableOpacity
+            onPress={() => openAction('Shopping')}
+            activeOpacity={0.8}
+            style={[s.fabAlways, { backgroundColor: colors.secondary || '#FFA93A' }]}
+          >
+            <View style={s.fabAlwaysGrad}>
+              <Ionicons name="cart-outline" size={26} color="#FFF" />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => openAction(undefined)}
+            activeOpacity={0.8}
+            style={[s.fabAlways, { backgroundColor: colors.primary }]}
+          >
+            <LinearGradient colors={[colors.primary, colors.primaryLight || colors.primary + 'DD']} style={s.fabAlwaysGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+              <Ionicons name="add" size={30} color="#FFF" />
             </LinearGradient>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         {/* Toast */}
         {toast && (
@@ -889,9 +1103,9 @@ export default function TodosScreen() {
         )}
 
         {/* Add/Edit Modal */}
-        <TodoModal visible={modalOpen} initial={editingTodo}
-          onClose={() => { setModalOpen(false); setEditingTodo(null); }}
-          onSave={addOrUpdate} onSaveAndNext={saveAndNext} colors={colors} isDark={isDark} />
+        <TodoModal visible={modalOpen} initial={editingTodo} initialTag={modalTag}
+          onClose={() => { setModalOpen(false); setEditingTodo(null); setModalTag(undefined); }}
+          onSave={addOrUpdate} onSaveAndNext={saveAndNext} onSaveMultiple={saveMultiple} colors={colors} isDark={isDark} />
 
         {/* Archive Sheet */}
         <Modal visible={archiveOpen} animationType="slide" transparent statusBarTranslucent>
@@ -938,17 +1152,36 @@ export default function TodosScreen() {
               <View style={[s.clearIcon, { backgroundColor: colors.error + '15' }]}>
                 <MaterialCommunityIcons name="broom" size={28} color={colors.error} />
               </View>
-              <Text style={[s.clearTitle, { color: colors.text }]}>Clear Everything?</Text>
-              <Text style={[s.clearSub, { color: colors.textVariant }]}>All active todos will be permanently removed.</Text>
-              <View style={s.clearBtns}>
-                <TouchableOpacity onPress={() => setClearOpen(false)} style={[s.clearCancelBtn, { backgroundColor: colors.background }]}>
-                  <Text style={[s.clearBtnTxt, { color: colors.textVariant }]}>Cancel</Text>
+              <Text style={[s.clearTitle, { color: colors.text }]}>The Big Sweep</Text>
+              <Text style={[s.clearSub, { color: colors.textVariant }]}>Which list would you like to clear? This cannot be undone.</Text>
+
+              <View style={s.clearBtnsVertical}>
+                <TouchableOpacity
+                  onPress={() => { saveAll(groceryTodos); setClearOpen(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); }}
+                  style={[s.clearOptionBtn, { backgroundColor: colors.background }]}
+                >
+                  <Ionicons name="flash-outline" size={18} color={colors.primary} />
+                  <Text style={[s.clearOptionTxt, { color: colors.text }]}>Clear Rituals Only</Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => { saveAll(ritualTodos); setClearOpen(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); }}
+                  style={[s.clearOptionBtn, { backgroundColor: colors.background }]}
+                >
+                  <Ionicons name="cart-outline" size={18} color={colors.secondary || '#FFA93A'} />
+                  <Text style={[s.clearOptionTxt, { color: colors.text }]}>Clear Grocery List Only</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   onPress={() => { saveAll([]); setClearOpen(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); }}
-                  style={[s.clearConfirmBtn, { backgroundColor: colors.error }]}
+                  style={[s.clearOptionBtn, { backgroundColor: colors.error + '15' }]}
                 >
-                  <Text style={[s.clearBtnTxt, { color: '#FFF' }]}>Clear All</Text>
+                  <Ionicons name="trash-outline" size={18} color={colors.error} />
+                  <Text style={[s.clearOptionTxt, { color: colors.error }]}>Clear Everything</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => setClearOpen(false)} style={{ marginTop: 10 }}>
+                  <Text style={{ color: colors.textVariant, fontWeight: '700', fontSize: scaleFontSize(13) }}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -992,12 +1225,16 @@ const s = StyleSheet.create({
   divider: { width: 1, height: 22, alignSelf: 'center', marginHorizontal: 5 },
   secLbl: { fontSize: scaleFontSize(10), fontWeight: '800', letterSpacing: 1.5, marginBottom: 8 },
 
-  empty: { alignItems: 'center', paddingTop: 54 },
-  emptyTitle: { fontSize: scaleFontSize(20), fontWeight: '800', marginBottom: 7 },
-  emptySub: { fontSize: scaleFontSize(13), textAlign: 'center', lineHeight: 20, opacity: 0.6 },
+  empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40 },
+  emptyCircle: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  emptyTitle: { fontSize: scaleFontSize(20), fontWeight: '800', marginBottom: 10, textAlign: 'center' },
+  emptySub: { fontSize: scaleFontSize(14), textAlign: 'center', lineHeight: 22, opacity: 0.6 },
+  dateSub: { fontSize: scaleFontSize(11), fontWeight: '700', marginTop: 2, letterSpacing: 0.1, opacity: 0.6 },
+  progSummary: { fontSize: scaleFontSize(10), fontWeight: '700', marginTop: -4, marginBottom: 10, letterSpacing: 0.2 },
 
-  fab: { position: 'absolute', bottom: 30, right: 20, width: 54, height: 54, borderRadius: 18, overflow: 'hidden', ...Shadows.soft },
-  fabGrad: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  fabBase: { position: 'absolute', bottom: 34, right: 30, alignItems: 'center', gap: 14 },
+  fabAlways: { width: 56, height: 56, borderRadius: 28, overflow: 'hidden', ...Shadows.strong },
+  fabAlwaysGrad: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   toastWrap: { position: 'absolute', bottom: 96, left: 0, right: 0 },
 
@@ -1014,8 +1251,7 @@ const s = StyleSheet.create({
   clearIcon: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   clearTitle: { fontSize: scaleFontSize(18), fontWeight: '800', marginBottom: 6 },
   clearSub: { fontSize: scaleFontSize(13), textAlign: 'center', lineHeight: 20, marginBottom: 20, opacity: 0.7 },
-  clearBtns: { flexDirection: 'row', gap: 10, width: '100%' },
-  clearCancelBtn: { flex: 1, height: 46, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
-  clearConfirmBtn: { flex: 1, height: 46, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
-  clearBtnTxt: { fontWeight: '800', fontSize: scaleFontSize(14) },
+  clearBtnsVertical: { width: '100%', gap: 10, alignItems: 'center' },
+  clearOptionBtn: { flexDirection: 'row', alignItems: 'center', width: '100%', padding: 14, borderRadius: 14, gap: 12 },
+  clearOptionTxt: { fontSize: scaleFontSize(14), fontWeight: '700' },
 });

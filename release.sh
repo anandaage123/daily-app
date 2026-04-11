@@ -132,8 +132,11 @@ done
 RELEASE_DATE=$(date +%Y-%m-%d)
 TAG="v${NEW_VERSION}"
 
-echo ""
 success "Selected: ${BOLD}${NEW_VERSION}${RESET}  ${DIM}(tagged as ${TAG})${RESET}"
+echo ""
+
+header "Deployment Goal: Connected Device + GitHub"
+info "Building with Gradle and side-loading update to your connected device."
 echo ""
 
 # ─── Step 4: Release notes ───────────────────────────────────────────────────
@@ -175,18 +178,12 @@ echo -e "  ${BOLD}Release URL:${RESET}  ${DIM}https://github.com/anandaage123/da
 echo ""
 divider
 echo ""
-echo -e "  ${BOLD}This will:${RESET}"
-echo -e "    1. Update version in ${CYAN}app.json${RESET}, ${CYAN}package.json${RESET}, ${CYAN}UpdateService.ts${RESET}, ${CYAN}version.json${RESET}"
-echo -e "    2. Build a ${CYAN}release APK${RESET} (~5-15 min)"
-echo -e "    3. ${CYAN}Commit + tag${RESET} and ${CYAN}push${RESET} to GitHub"
 if [[ "$GH_AVAILABLE" == true ]]; then
   echo -e "    4. ${CYAN}Create GitHub Release${RESET} and upload APK"
 else
-  echo -e "    4. ${YELLOW}Skip GitHub Release${RESET} (gh not installed)"
+  echo -e "    4. ${YELLOW}Skip GitHub Release${RESET}"
 fi
-if [[ "$ADB_AVAILABLE" == true ]]; then
-  echo -e "    5. ${CYAN}Install APK${RESET} on connected Android device"
-fi
+echo -e "    5. ${CYAN}Install APK${RESET} on connected Android Studio device via Gradle"
 echo ""
 
 while true; do
@@ -243,13 +240,14 @@ fi
 
 echo ""
 
-# ─── Step 7: Build release APK ───────────────────────────────────────────────
-header "Building Release APK"
-info "Running: npx expo run:android --variant release"
-info "This may take 5–15 minutes…"
+# ─── Step 7: Build & Install to Device ────────────────────────────────────────
+header "Building & Installing"
+info "Running: cd android && ./gradlew installRelease"
+info "By using Gradle directly, we skip slow pre-checks and update the device immediately."
 echo ""
 
-npx expo run:android --variant release
+cd android && ./gradlew installRelease
+cd ..
 
 # Find APK
 APK_SOURCE=$(find android/app/build/outputs/apk/release -name "*.apk" 2>/dev/null | head -n 1)
@@ -273,18 +271,17 @@ header "Updating version.json"
 DOWNLOAD_URL="https://github.com/anandaage123/daily-app/releases/download/${TAG}/Monolith.apk"
 RELEASE_URL="https://github.com/anandaage123/daily-app/releases/tag/${TAG}"
 
-python3 - <<PYEOF
-import json
-
-notes = """${RELEASE_NOTES_TEXT}""".strip()
+python3 - "$NEW_VERSION" "$NEW_BUILD" "$RELEASE_DATE" "$RELEASE_NOTES_TEXT" "$DOWNLOAD_URL" "$RELEASE_URL" <<'PYEOF'
+import sys, json
+v, b, d, notes, dw, rl = sys.argv[1:7]
 manifest = {
-    "version": "${NEW_VERSION}",
-    "build": ${NEW_BUILD},
-    "versionCode": ${NEW_BUILD},
-    "releaseDate": "${RELEASE_DATE}",
-    "releaseNotes": notes,
-    "downloadUrl": "${DOWNLOAD_URL}",
-    "releaseUrl": "${RELEASE_URL}",
+    "version": v,
+    "build": int(b),
+    "versionCode": int(b),
+    "releaseDate": d,
+    "releaseNotes": notes.strip(),
+    "downloadUrl": dw,
+    "releaseUrl": rl,
     "minBuildRequired": 1,
     "forceUpdate": False
 }
@@ -315,12 +312,9 @@ success "Committed: release: Bump version to ${NEW_VERSION}"
 success "Tagged: ${TAG}"
 echo ""
 
-# ─── Step 10: Push to GitHub ──────────────────────────────────────────────────
 header "Pushing to GitHub"
-
 git push origin master
 success "Pushed master branch"
-
 git push origin "${TAG}"
 success "Pushed tag ${TAG}"
 echo ""
@@ -330,46 +324,22 @@ header "Creating GitHub Release"
 
 if [[ "$GH_AVAILABLE" == true ]]; then
   info "Uploading APK to GitHub Releases…"
-
   gh release create "${TAG}" \
     "${DEST_APK}" \
     --title "Monolith ${NEW_VERSION}" \
     --notes "$(printf '%s\n' "${NOTES_LINES[@]}")" \
     --repo "anandaage123/daily-app"
-
   success "GitHub Release created!"
   success "APK live at: ${DIM}${DOWNLOAD_URL}${RESET}"
 else
-  warn "GitHub CLI not available — create the release manually:"
-  echo ""
-  echo -e "    1. Go to: ${CYAN}https://github.com/anandaage123/daily-app/releases/new${RESET}"
-  echo -e "    2. Tag:    ${BOLD}${TAG}${RESET}"
-  echo -e "    3. Title:  ${BOLD}Monolith ${NEW_VERSION}${RESET}"
-  echo -e "    4. Upload: ${BOLD}${DEST_APK}${RESET}"
-  echo -e "    5. Click Publish Release"
-  echo ""
-  echo -e "    ${DIM}Then run: brew install gh && gh auth login  (to automate next time)${RESET}"
+  warn "GitHub CLI not available — skipping GitHub Release"
 fi
-
 echo ""
 
 # ─── Step 12: Install to device ──────────────────────────────────────────────
 header "Installing to Device"
 
-if [[ "$ADB_AVAILABLE" == true ]]; then
-  DEVICE=$(adb devices 2>/dev/null | grep -v "List of devices" | grep "device$" | head -n 1)
-  if [[ -n "$DEVICE" ]]; then
-    info "Installing ${DEST_APK} on connected device…"
-    adb install -r "$DEST_APK"
-    success "Installed successfully"
-  else
-    warn "No Android device connected via ADB — skipping install"
-    info "To install manually: adb install -r ${DEST_APK}"
-  fi
-else
-  warn "ADB not available — skipping device install"
-fi
-
+success "Installed via gradlew installRelease"
 echo ""
 
 # ─── Done ────────────────────────────────────────────────────────────────────

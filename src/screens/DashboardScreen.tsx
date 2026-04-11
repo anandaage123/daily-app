@@ -246,7 +246,7 @@ export default function DashboardScreen() {
       // If not completed today, reset the completed flag
       if (!isToday(lastCompleted)) {
         updated = true;
-        
+
         // Check if it was completed yesterday
         if (isYesterday(lastCompleted)) {
           // Keep the streak, just reset the completed flag
@@ -320,22 +320,22 @@ export default function DashboardScreen() {
   const startEntranceAnimation = () => {
     const animations = sectionAnims.map((anim, i) => {
       return Animated.parallel([
-        Animated.timing(anim, {
+        Animated.spring(anim, {
           toValue: 1,
-          duration: 600,
+          tension: 110,
+          friction: 12,
           useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
         }),
-        Animated.timing(slideAnims[i], {
+        Animated.spring(slideAnims[i], {
           toValue: 0,
-          duration: 700,
+          tension: 100,
+          friction: 10,
           useNativeDriver: true,
-          easing: Easing.out(Easing.back(1)),
         })
       ]);
     });
 
-    Animated.stagger(120, animations).start();
+    Animated.stagger(45, animations).start();
   };
 
 
@@ -476,7 +476,7 @@ export default function DashboardScreen() {
             completedAt: Date.now(),
             streak: h.count + 1,
           }).catch(() => { });
-          
+
           return {
             ...h,
             completed: true,
@@ -590,7 +590,7 @@ export default function DashboardScreen() {
                 >
                   <Ionicons name={isDark ? "sunny" : "moon"} size={22} color={colors.primary} />
                 </Pressable>
-                
+
               </View>
             </View>
 
