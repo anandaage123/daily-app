@@ -16,15 +16,18 @@ import {
   TouchableNativeFeedback,
   Modal,
   Pressable,
+  AppState
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import * as Notifications from 'expo-notifications';
 import { Typography, Shadows } from '../theme/Theme';
 import { scaleFontSize } from '../utils/ResponsiveSize';
 import { useTheme } from '../context/ThemeContext';
+import { useAudioPlayer } from 'expo-audio';
 import { recordFocusSession } from '../services/DailyLogService';
 
 const { width, height } = Dimensions.get('window');
@@ -498,12 +501,17 @@ export default function FocusScreen() {
   const [currentSprint, setCurrentSprint] = useState(0);
   const [completedSprints, setCompletedSprints] = useState(0);
 
+  const player = useAudioPlayer(require('../../assets/timer_end.wav'));
+
+  const scheduledNotifId = useRef<string | null>(null);
+
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [totalTime, setTotalTime] = useState(25 * 60);
   const [isActive, setIsActive] = useState(false);
   const [logs, setLogs] = useState<SessionLog[]>([]);
   const [showComplete, setShowComplete] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState(0);
+  const lastBgTimestamp = useRef<number | null>(null);
 
   // Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -561,8 +569,69 @@ export default function FocusScreen() {
     }
   }, [status]);
 
-  // ─── Persistence ─────────────────────────────────────────────────────────────
-  useEffect(() => { loadLogs(); }, []);
+  // ─── Persistence & Lifecycle ────────────────────────────────────────────────
+  useEffect(() => {
+    loadLogs();
+    (async () => {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        // Fallback or silent fail
+      }
+    })();
+  }, []);
+
+  const cancelAllNotifs = useCallback(async () => {
+    if (scheduledNotifId.current) {
+      await Notifications.cancelScheduledNotificationAsync(scheduledNotifId.current).catch(() => { });
+      scheduledNotifId.current = null;
+    }
+  }, []);
+
+  const scheduleNextNotif = useCallback(async (seconds: number, phase: string) => {
+    await cancelAllNotifs();
+    if (seconds <= 0) return;
+
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: phase === 'focus' ? 'Focus Session Complete!' : 'Break Over!',
+        body: phase === 'focus' ? 'Great job! Time for a short rest.' : 'Ready to focus again?',
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      },
+      trigger: { seconds },
+    });
+    scheduledNotifId.current = id;
+  }, [cancelAllNotifs]);
+
+  const isActiveRef = useRef(isActive);
+  const timeLeftRef = useRef(timeLeft);
+  const statusRef = useRef(status);
+
+  useEffect(() => {
+    isActiveRef.current = isActive;
+    timeLeftRef.current = timeLeft;
+    statusRef.current = status;
+  }, [isActive, timeLeft, status]);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active' && lastBgTimestamp.current) {
+        const elapsed = Math.floor((Date.now() - lastBgTimestamp.current) / 1000);
+        if (isActiveRef.current) {
+          const newTime = timeLeftRef.current - elapsed;
+          setTimeLeft(newTime);
+          // Reschedule notification for the remaining time after catch-up
+          if (newTime > 0) scheduleNextNotif(newTime, statusRef.current);
+        }
+        lastBgTimestamp.current = null;
+      } else if (nextAppState.match(/inactive|background/)) {
+        lastBgTimestamp.current = Date.now();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [scheduleNextNotif]);
 
   const loadLogs = async () => {
     try {
@@ -626,6 +695,7 @@ export default function FocusScreen() {
     }
 
     if (isActive) {
+      scheduleNextNotif(timeLeft, status);
       if (status === 'focus') {
         interval = setInterval(() => {
           setTimeLeft((prev: number) => {
@@ -641,6 +711,7 @@ export default function FocusScreen() {
             if (next === 0) {
               triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
               if (Platform.OS !== 'web') Vibration.vibrate([0, 500, 200, 500, 200, 500]);
+              player.play();
             }
 
             return next; // Goes negative for overtime
@@ -673,7 +744,7 @@ export default function FocusScreen() {
       }
     }
     return () => clearInterval(interval);
-  }, [isActive, status]);
+  }, [isActive, status, (status === 'break' && timeLeft > 0), handlePhaseEnd]);
 
   // Called when the user manually skips OR when break reaches zero.
   // Focus phase: saves actual elapsed time (including overtime), then transitions.
@@ -683,6 +754,7 @@ export default function FocusScreen() {
     setIsActive(false);
     if (Platform.OS !== 'web') Vibration.vibrate([0, 400, 150, 400]);
     triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
+    player.play();
 
     if (status === 'focus') {
       saveSession(); // saveSession captures actual elapsed (totalTime - timeLeft) including overtime
@@ -731,6 +803,7 @@ export default function FocusScreen() {
 
   const skipPhase = () => {
     triggerHaptic();
+    cancelAllNotifs();
     handlePhaseEnd();
   };
 
@@ -746,6 +819,7 @@ export default function FocusScreen() {
     setIsActive(true);
     setStatus('focus');
     setSessionStartTime(Date.now());
+    scheduleNextNotif(secs, 'focus');
   };
 
   const handleCompleteSession = () => {

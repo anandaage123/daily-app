@@ -47,11 +47,14 @@
 
 ### ◈ Deep Focus (`FocusScreen.tsx`)
 - **Pomodoro Engine**:
-    - State-managed countdown with background persistence via `expo-notifications`.
+    - State-managed countdown with background persistence via **`AppState` catch-up logic** and **`expo-notifications`** scheduled alerts.
+    - Ensures accurate time-tracking and audial alerts even when the phone is manually locked or backgrounded.
     - **Continuous Mode**: Optional toggle allows timer to enter "Overtime" (positive count) post-session instead of auto-switching to Break.
 - **Zen Pulse Design**:
     - Breath-sync animation scaling the container `1.0 <-> 1.1` using `Animated.loop` and `Easing.sin`.
-- **Feedback Loop**: Triggers `ImpactFeedbackStyle.Heavy` and `NotificationFeedbackType.Success` on session end.
+- **Feedback Loop**: 
+    - Triggers `ImpactFeedbackStyle.Heavy` haptics and **`expo-audio`** (`timer_end.wav`) completion sounds on session end.
+    - Synchronized visual celebration modal triggered on sprint completion.
 
 ### ◈ Tasks & Priority (`TodosScreen.tsx`)
 - **Interactive Registry**:
