@@ -212,8 +212,8 @@ export default function UpdateModal({ manifest, onDismiss }: UpdateModalProps) {
         {/* Version headline */}
         <View style={styles.versionRow}>
           <View>
-            <Text style={styles.versionNew}>v{manifest.version}#{manifest.build || manifest.versionCode}</Text>
-            <Text style={styles.versionCurrent}>Installed: v{APP_VERSION}#{APP_BUILD}</Text>
+            <Text style={styles.versionNew}>v{manifest.version}</Text>
+            <Text style={styles.versionCurrent}>Installed: v{APP_VERSION}</Text>
           </View>
           <View style={styles.releaseInfo}>
             <Ionicons name="calendar-outline" size={12} color={C.textSub} />

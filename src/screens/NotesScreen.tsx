@@ -25,6 +25,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { scaleFontSize } from '../utils/ResponsiveSize';
 import { useTheme } from '../context/ThemeContext';
+import { useAppSettings } from '../context/AppSettingsContext';
 import { JSX } from 'react/jsx-runtime';
 
 const { width } = Dimensions.get('window');
@@ -79,6 +80,7 @@ type DailyLogSection =
 
 export default function NotesScreen() {
   const { colors, isDark } = useTheme();
+  const { periodTrackerEnabled, setPeriodTrackerEnabled } = useAppSettings();
   const isFocused = useIsFocused();
 
   const cardBg = isDark ? '#1C1C1E' : '#FFFFFF';
@@ -1494,6 +1496,42 @@ export default function NotesScreen() {
               <Ionicons name="trash-outline" size={22} color="#FF3B30" />
               <Text style={[s.actionText, { color: '#FF3B30' }]}>Wipe All Data</Text>
             </TouchableOpacity>
+
+            <View style={{ height: 1.5, backgroundColor: outlineColor, marginVertical: 18, opacity: 0.5 }} />
+            
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#FF6B6B15', justifyContent: 'center', alignItems: 'center' }}>
+                  <MaterialCommunityIcons name="calendar-heart" size={22} color="#FF6B6B" />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>Period Tracker</Text>
+                  <Text style={{ fontSize: 12, color: secondaryText }}>Cycle tracking and predictions</Text>
+                </View>
+              </View>
+              <TouchableOpacity 
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setPeriodTrackerEnabled(!periodTrackerEnabled);
+                }}
+                style={{
+                  width: 50,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: periodTrackerEnabled ? colors.primary : surfaceVariant,
+                  paddingHorizontal: 4,
+                  justifyContent: 'center',
+                }}
+              >
+                <Animated.View style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  backgroundColor: '#FFF',
+                  transform: [{ translateX: periodTrackerEnabled ? 22 : 0 }]
+                }} />
+              </TouchableOpacity>
+            </View>
           </SafeAreaView>
         </View>
       </Modal>

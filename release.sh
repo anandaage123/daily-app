@@ -305,12 +305,10 @@ git add app.json package.json version.json src/services/UpdateService.ts
 # Stage the APK if you want it tracked (optional; usually skipped)
 # git add "${DEST_APK}"  # uncomment if you want APK in git (not recommended for large files)
 
-git commit -m "release: Bump version to ${NEW_VERSION} (build #${NEW_BUILD})
-
+git commit -m "release: Bump version to ${NEW_VERSION}
 $(printf '%s\n' "${NOTES_LINES[@]}")"
 
 git tag -a "${TAG}" -m "Monolith ${NEW_VERSION}
-
 $(printf '%s\n' "${NOTES_LINES[@]}")"
 
 success "Committed: release: Bump version to ${NEW_VERSION}"
@@ -379,7 +377,7 @@ divider
 echo ""
 echo -e "  ${BOLD}${GREEN}🎉 Release ${NEW_VERSION} is live!${RESET}"
 echo ""
-echo -e "  ${BOLD}Version :${RESET} ${NEW_VERSION} (build #${NEW_BUILD})"
+echo -e "  ${BOLD}Version :${RESET} ${NEW_VERSION}"
 echo -e "  ${BOLD}APK     :${RESET} ${DEST_APK}  ${DIM}(${APK_SIZE})${RESET}"
 echo -e "  ${BOLD}Tag     :${RESET} ${TAG}"
 echo -e "  ${BOLD}URL     :${RESET} ${DIM}${RELEASE_URL}${RESET}"

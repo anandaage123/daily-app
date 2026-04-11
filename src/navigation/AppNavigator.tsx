@@ -2,8 +2,9 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 import DashboardScreen from '../screens/DashboardScreen';
 import TodosScreen from '../screens/TodosScreen';
@@ -11,12 +12,14 @@ import NotesScreen from '../screens/NotesScreen';
 import FocusScreen from '../screens/FocusScreen';
 import VaultScreen from '../screens/VaultScreen';
 import BudgetScreen from '../screens/BudgetScreen';
+import PeriodTrackerScreen from '../screens/PeriodTrackerScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 function TabNavigator() {
   const { colors, isDark } = useTheme();
+  const { periodTrackerEnabled } = useAppSettings();
 
   return (
     <Tab.Navigator
@@ -33,6 +36,8 @@ function TabNavigator() {
         tabBarInactiveTintColor: colors.textVariant,
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: any = 'home';
+          let isMCI = false;
+          
           if (route.name === 'Dashboard') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Tasks') {
@@ -43,6 +48,13 @@ function TabNavigator() {
             iconName = focused ? 'timer' : 'timer-outline';
           } else if (route.name === 'Journal') {
             iconName = focused ? 'book' : 'book-outline';
+          } else if (route.name === 'Period') {
+            iconName = focused ? 'calendar-heart' : 'calendar-heart-outline';
+            isMCI = true;
+          }
+          
+          if (isMCI) {
+            return <MaterialCommunityIcons name={iconName} size={size > 28 ? 28 : size} color={color} />;
           }
           return <Ionicons name={iconName} size={size > 28 ? 28 : size} color={color} />;
         },
@@ -58,6 +70,9 @@ function TabNavigator() {
       <Tab.Screen name="Budget" component={BudgetScreen} />
       <Tab.Screen name="Focus" component={FocusScreen} />
       <Tab.Screen name="Journal" component={NotesScreen} />
+      {periodTrackerEnabled && (
+        <Tab.Screen name="Period" component={PeriodTrackerScreen} />
+      )}
     </Tab.Navigator>
   );
 }
@@ -92,4 +107,3 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
-

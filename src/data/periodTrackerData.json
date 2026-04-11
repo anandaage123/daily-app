@@ -1,0 +1,91 @@
+{
+  "SYMPTOMS": [
+    { "key": "cramps", "label": "Period Cramps", "icon": "lightning-bolt" },
+    { "key": "headache", "label": "Headache", "icon": "head-alert" },
+    { "key": "bloating", "label": "Bloating", "icon": "stomach" },
+    { "key": "backache", "label": "Backache", "icon": "human-back-variant" },
+    { "key": "breast_tenderness", "label": "Breast Pain", "icon": "heart-pulse" },
+    { "key": "acne", "label": "Acne", "icon": "emoticon-neutral" },
+    { "key": "nausea", "label": "Nausea", "icon": "emoticon-sick-outline" },
+    { "key": "fatigue", "label": "Fatigue", "icon": "sleep" },
+    { "key": "insomnia", "label": "Insomnia", "icon": "weather-night" },
+    { "key": "hot_flashes", "label": "Hot Flashes", "icon": "thermometer" },
+    { "key": "spotting", "label": "Spotting", "icon": "water-outline" },
+    { "key": "discharge", "label": "Discharge", "icon": "water-check" }
+  ],
+  "MOOD_COLORS": {
+    "happy": "#FFD700",
+    "calm": "#4052B6",
+    "energetic": "#FF8C00",
+    "neutral": "#8E8E93",
+    "sad": "#4F86F7",
+    "anxious": "#D85A30",
+    "irritable": "#E24B4A",
+    "fatigued": "#7B1FA2"
+  },
+  "FLOW_OPTIONS": [
+    { "key": "spotting", "label": "Spotting", "dots": 1, "color": "#F4C0D1", "desc": "Very light streaks" },
+    { "key": "light", "label": "Light", "dots": 2, "color": "#F0997B", "desc": "Light flow" },
+    { "key": "normal", "label": "Normal", "dots": 3, "color": "#D85A30", "desc": "Standard flow" },
+    { "key": "heavy", "label": "Heavy", "dots": 4, "color": "#A32D2D", "desc": "Strong flow" },
+    { "key": "very_heavy", "label": "Very Heavy", "dots": 5, "color": "#501313", "desc": "Extremely heavy" }
+  ],
+  "PROTECTION_OPTIONS": [
+    { "key": "condom", "label": "Condom", "icon": "shield-check" },
+    { "key": "pill", "label": "Pill", "icon": "pill" },
+    { "key": "iud", "label": "IUD", "icon": "medical-bag" },
+    { "key": "implant", "label": "Implant", "icon": "needle" },
+    { "key": "none", "label": "None", "icon": "shield-off-outline" },
+    { "key": "other", "label": "Other", "icon": "dots-horizontal" }
+  ],
+  "EMERGENCY_RESOURCES": [
+    { "type": "Women's Helpline", "hotline": "1091", "service": "National Commission for Women", "available": "24/7" },
+    { "type": "Sexual Assault", "hotline": "181", "service": "Women in Distress (Abhaya)", "available": "24/7" },
+    { "type": "Emergency Response", "hotline": "112", "service": "All-in-one Emergency Number", "available": "24/7" },
+    { "type": "Child Helpline", "hotline": "1098", "service": "Childline India", "available": "24/7" }
+  ],
+  "INSIGHTS_KNOWLEDGE": [
+    {
+      "category": "Biology", "title": "Your Cycle, Explained", "icon": "dna", "color": "#7F77DD",
+      "content": "Your cycle has four phases governed by four hormones: Estrogen, Progesterone, FSH, and LH.\n\nPhase 1 (Menstrual): Energy is low. Rest is key.\n\nPhase 2 (Follicular): Estrogen rises — you feel more social, creative, confident.\n\nPhase 3 (Ovulation): Your biological peak. Highest fertility and energy.\n\nPhase 4 (Luteal): Progesterone leads. Quieter, more introspective. PMS may occur."
+    },
+    {
+      "category": "Nutrition", "title": "Eating for Your Phases", "icon": "food-apple", "color": "#1D9E75",
+      "content": "During your period: Iron-rich foods (lentils, spinach, red meat) replace blood loss.\n\nFollicular phase: Fermented foods support estrogen metabolism.\n\nLuteal phase: Magnesium is your best friend — dark chocolate and bananas reduce cramps and mood swings."
+    },
+    {
+      "category": "Mental Health", "title": "Hormones & Emotions", "icon": "brain", "color": "#D85A30",
+      "content": "Estrogen peaks correlate with higher serotonin (happiness). Progesterone rise can trigger irritability or anxiety in some.\n\nTracking your mood alongside your cycle helps you recognise \"bad days\" as biological shifts — not personal failures."
+    },
+    {
+      "category": "Self Care", "title": "Cramps & Bloating Relief", "icon": "heart-pulse", "color": "#E24B4A",
+      "content": "Heat therapy is clinically as effective as some painkillers.\n\nHydration: 3L of water reduces bloating by flushing retained water.\n\nMovement: Gentle walks or yoga increase pelvic blood flow, easing uterine contractions."
+    }
+  ],
+  "CYCLE_PHASES": {
+    "menstrual": {
+      "name": "Menstrual", "startDay": 1, "endDay": 5, "icon": "water", "color": "#E24B4A",
+      "desc": "Your body is shedding and renewing. Focus on rest, warmth, and self-kindness.",
+      "characteristics": ["Period bleeding", "Lower energy", "Possible cramps", "Heightened intuition"],
+      "recommendations": ["Rest & hydrate", "Iron-rich foods", "Gentle yoga", "Heat therapy"]
+    },
+    "follicular": {
+      "name": "Follicular", "startDay": 6, "endDay": 12, "icon": "leaf", "color": "#1D9E75",
+      "desc": "Estrogen climbs — your brain is more creative and energised. Great for starting new things.",
+      "characteristics": ["Rising energy", "Improving mood", "Creative peak", "Social openness"],
+      "recommendations": ["High-intensity exercise", "Plan big tasks", "Social activities", "Skincare focus"]
+    },
+    "ovulation": {
+      "name": "Ovulation", "startDay": 13, "endDay": 16, "icon": "star-circle", "color": "#BA7517",
+      "desc": "Peak energy and confidence. You are at your biological best right now.",
+      "characteristics": ["Peak fertility", "High confidence", "Temperature rise", "High libido"],
+      "recommendations": ["Track ovulation carefully", "Use contraception if needed", "Peak workout", "Important meetings"]
+    },
+    "luteal": {
+      "name": "Luteal", "startDay": 17, "endDay": 32, "icon": "moon-waning-crescent", "color": "#7F77DD",
+      "desc": "Progesterone rises, preparing for rest. You may feel more sensitive or introspective.",
+      "characteristics": ["Progesterone rise", "Introspection", "Possible PMS", "Nest-building urge"],
+      "recommendations": ["Moderate exercise", "Meal prep", "Extra self-care", "Journal & reflect"]
+    }
+  }
+}

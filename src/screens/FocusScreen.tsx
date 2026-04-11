@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { useKeepAwake } from 'expo-keep-awake';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Typography, Shadows } from '../theme/Theme';
@@ -473,7 +473,12 @@ const CelebrationOverlay: React.FC<{
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function FocusScreen() {
   const { colors, isDark } = useTheme();
-  useKeepAwake();
+  useEffect(() => {
+    activateKeepAwakeAsync().catch(() => {});
+    return () => {
+      deactivateKeepAwake();
+    };
+  }, []);
 
   // ─── State ──────────────────────────────────────────────────────────────────
   const [status, setStatus] = useState<TimerStatus>('setup');

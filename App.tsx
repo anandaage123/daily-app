@@ -15,6 +15,7 @@ import {
 import AppNavigator from './src/navigation/AppNavigator';
 import UpdateModal from './src/components/UpdateModal';
 import { ThemeProvider } from './src/context/ThemeContext';
+import { AppSettingsProvider } from './src/context/AppSettingsContext';
 import { checkForUpdates, VersionManifest } from './src/services/UpdateService';
 import { scaleFontSize } from './src/utils/ResponsiveSize';
 import * as Haptics from 'expo-haptics';
@@ -1060,9 +1061,11 @@ export default function App() {
 
   return (
     <>
-      <ThemeProvider>
-        <AppNavigator />
-      </ThemeProvider>
+      <AppSettingsProvider>
+        <ThemeProvider>
+          <AppNavigator />
+        </ThemeProvider>
+      </AppSettingsProvider>
       {updateManifest && (
         <UpdateModal manifest={updateManifest} onDismiss={() => setUpdateManifest(null)} />
       )}
