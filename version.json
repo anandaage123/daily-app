@@ -1,11 +1,11 @@
 {
-  "version": "3.5.3",
-  "build": 51,
-  "versionCode": 51,
+  "version": "3.5.4",
+  "build": 52,
+  "versionCode": 52,
   "releaseDate": "2026-04-12",
-  "releaseNotes": "\u2022 Improves Focus Screen UI",
-  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v3.5.3/Monolith.apk",
-  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v3.5.3",
+  "releaseNotes": "\u2022 Updates time picker in custom focus time mode",
+  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v3.5.4/Monolith.apk",
+  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v3.5.4",
   "minBuildRequired": 1,
   "forceUpdate": false
 }
