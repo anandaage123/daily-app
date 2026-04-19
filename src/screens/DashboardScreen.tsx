@@ -309,6 +309,7 @@ export default function DashboardScreen() {
   const [prevCompletionRate, setPrevCompletionRate] = useState(0);
 
   // ── Animation refs ─────────────────────────────────────────────────────────
+  const swipeRefs = useRef<{ [key: string]: Swipeable | null }>({}).current;
   const sectionAnims = useRef([
     new Animated.Value(0), // 0 Header
     new Animated.Value(0), // 1 Quote
@@ -868,7 +869,7 @@ export default function DashboardScreen() {
     label: { ...Typography.caption, fontWeight: '700', marginBottom: 10, marginTop: 10, color: colors.textVariant, letterSpacing: 1 },
     input: {
       borderBottomWidth: 1, borderBottomColor: colors.surfaceContainer,
-      color: colors.text, paddingVertical: 10,
+      color: isDark ? colors.primary : colors.text, paddingVertical: 10,
       ...Typography.body, fontSize: scaleFontSize(16), marginBottom: 20,
     },
     iconPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
@@ -1009,13 +1010,13 @@ export default function DashboardScreen() {
                 const renderRightActions = () => (
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <TouchableOpacity
-                      onPress={() => { openAppModal(habit); }}
+                      onPress={() => { swipeRefs[habit.id]?.close(); openAppModal(habit); }}
                       style={{ backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', width: 65, height: '90%', borderRadius: 14, marginLeft: 8 }}
                     >
                       <Ionicons name="create-outline" size={20} color="#FFF" />
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={() => { setHabitToDelete(habit.id); setDeleteConfirmVisible(true); }}
+                      onPress={() => { swipeRefs[habit.id]?.close(); setHabitToDelete(habit.id); setDeleteConfirmVisible(true); }}
                       style={{ backgroundColor: colors.error, justifyContent: 'center', alignItems: 'center', width: 65, height: '90%', borderRadius: 14, marginLeft: 8 }}
                     >
                       <Ionicons name="trash-outline" size={20} color="#FFF" />
@@ -1031,7 +1032,9 @@ export default function DashboardScreen() {
                       opacity: habitToDelete === habit.id ? habitDeleteAnim : 1,
                     }}
                   >
-                    <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
+                    <Swipeable 
+                      ref={ref => { if (ref) swipeRefs[habit.id] = ref; }}
+                      renderRightActions={renderRightActions} overshootRight={false} containerStyle={{ overflow: 'visible' }} childrenContainerStyle={{ overflow: 'visible' }}>
                     <Pressable
                       style={({ pressed }) => [
                         styles.habitItem,
@@ -1325,27 +1328,17 @@ export default function DashboardScreen() {
             <View style={{ alignItems: 'center', marginBottom: 4 }}>
               <View style={{
                 width: 60, height: 60, borderRadius: 30,
-                backgroundColor: colors.primary + '18',
+                backgroundColor: colors.error + '18',
                 justifyContent: 'center', alignItems: 'center', marginBottom: 16,
               }}>
-                <MaterialCommunityIcons name="pencil-outline" size={28} color={colors.primary} />
+                <MaterialCommunityIcons name="alert-circle-outline" size={28} color={colors.error} />
               </View>
-              <Text style={styles.modalTitle}>Manage Ritual</Text>
+              <Text style={styles.modalTitle}>Remove Ritual</Text>
               <Text style={{ ...Typography.body, color: colors.textVariant, marginTop: 10, textAlign: 'center', fontSize: scaleFontSize(14) }}>
-                Edit your ritual details or permanently remove it.
+                Are you sure you want to permanently remove this ritual?
               </Text>
             </View>
             <View style={{ gap: 12, marginTop: 20 }}>
-              <Pressable
-                style={({ pressed }) => [styles.saveBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 }]}
-                onPress={() => {
-                  setDeleteConfirmVisible(false);
-                  const h = habits.find(x => x.id === habitToDelete);
-                  if (h) setTimeout(() => openAppModal(h), 300);
-                }}
-              >
-                <Text style={styles.saveBtnText}>Edit Ritual</Text>
-              </Pressable>
               <Pressable
                 style={({ pressed }) => [styles.saveBtn, { backgroundColor: colors.error, opacity: pressed ? 0.8 : 1 }]}
                 onPress={() => habitToDelete && deleteHabit(habitToDelete)}

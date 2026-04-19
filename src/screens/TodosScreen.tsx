@@ -198,7 +198,8 @@ const TodoItem = React.memo(({
     }
   };
 
-  const checkBg = checkAnim.interpolate({ inputRange: [0, 1], outputRange: ['transparent', colors.primary] });
+  const checkColor = isShopping ? (colors.secondary || '#FFA93A') : colors.primary;
+  const checkBg = checkAnim.interpolate({ inputRange: [0, 1], outputRange: ['transparent', checkColor] });
   const cfg = PRIORITY_CONFIG[item.priority];
   const doneSubtasks = (item.subtasks || []).filter(s => s.completed).length;
   const overdue = item.dueDate && !item.completed && item.dueDate < Date.now();
@@ -240,14 +241,14 @@ const TodoItem = React.memo(({
       opacity: fadeIn, transform: [{ translateY: slideIn }, { scale: pressAnim }],
     }}>
       <Swipeable ref={swipeRef} renderRightActions={renderRight} renderLeftActions={renderLeft}
-        overshootRight={false} overshootLeft={false}>
+        overshootRight={false} overshootLeft={false} containerStyle={{ overflow: 'visible' }} childrenContainerStyle={{ overflow: 'visible' }}>
         <Pressable onPress={handleRowPress} onLongPress={() => onEdit(item)} delayLongPress={500}>
           <View style={[
             iStyles.card,
             {
               backgroundColor: isDark
-                ? (item.completed ? colors.surface + 'BB' : colors.surface)
-                : (item.completed ? '#F7F8FF' : '#FFFFFF'),
+                ? (item.completed ? colors.surface + '88' : colors.surface)
+                : (item.completed ? (isShopping ? '#FAFAFA' : '#F7F8FF') : '#FFFFFF'),
             }]}>
 
             {!item.completed && !isShopping && (
@@ -258,7 +259,7 @@ const TodoItem = React.memo(({
               <Animated.View style={[
                 iStyles.checkbox,
                 {
-                  borderColor: item.completed ? colors.primary + '33' : colors.primary + '55',
+                  borderColor: item.completed ? checkColor + '33' : checkColor + '55',
                   backgroundColor: checkBg,
                   borderRadius: isShopping ? 6 : 11,
                 }
@@ -386,7 +387,7 @@ const TodoItem = React.memo(({
 });
 
 const iStyles = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'flex-start', padding: 16, paddingLeft: 18, borderRadius: 20, marginBottom: 14, ...Shadows.soft, overflow: 'hidden' },
+  card: { flexDirection: 'row', alignItems: 'flex-start', padding: 16, paddingLeft: 18, borderRadius: 20, marginBottom: 14, ...Shadows.soft },
   priStrip: { position: 'absolute', left: 0, top: 12, bottom: 12, width: 4, borderTopRightRadius: 3, borderBottomRightRadius: 3 },
   checkbox: { width: 22, height: 22, justifyContent: 'center', alignItems: 'center', marginRight: 12, marginTop: 2, borderWidth: 1.5 },
   body: { flex: 1 },
@@ -573,7 +574,7 @@ function TodoModal({ visible, initial, initialTag, onClose, onSave, onSaveAndNex
               ref={inputRef}
               style={[
                 mStyles.input,
-                { backgroundColor: colors.background, color: colors.text, marginBottom: 16 },
+                { backgroundColor: colors.background, color: isDark ? colors.primary : colors.text, marginBottom: 16 },
                 tag === 'Shopping' && { minHeight: 140, textAlignVertical: 'top' }
               ]}
               placeholder={tag === 'Shopping' ? "Milk\nEggs\nBread..." : "What needs to be done?"}
@@ -641,7 +642,7 @@ function TodoModal({ visible, initial, initialTag, onClose, onSave, onSaveAndNex
                 {/* Notes */}
                 <Text style={[mStyles.lbl, { color: colors.textVariant }]}>NOTES</Text>
                 <TextInput
-                  style={[mStyles.notesInput, { backgroundColor: colors.background, color: colors.text, marginBottom: 20 }]}
+                  style={[mStyles.notesInput, { backgroundColor: colors.background, color: isDark ? colors.primary : colors.text, marginBottom: 20 }]}
                   placeholder="Add notes…"
                   placeholderTextColor={colors.textVariant + '50'}
                   multiline
@@ -653,7 +654,7 @@ function TodoModal({ visible, initial, initialTag, onClose, onSave, onSaveAndNex
                 <Text style={[mStyles.lbl, { color: colors.textVariant }]}>EXPECTED DURATION (OPTIONAL)</Text>
                 <View style={{ flexDirection: 'row', gap: 10, marginBottom: 18 }}>
                   <TextInput
-                    style={[{ flex: 1, borderRadius: 14, padding: 14, fontSize: 13, backgroundColor: colors.background, color: colors.text }]}
+                    style={[{ flex: 1, borderRadius: 14, padding: 14, fontSize: 13, backgroundColor: colors.background, color: isDark ? colors.primary : colors.text }]}
                     placeholder="Hours"
                     placeholderTextColor={colors.textVariant + '50'}
                     keyboardType="number-pad"
@@ -661,7 +662,7 @@ function TodoModal({ visible, initial, initialTag, onClose, onSave, onSaveAndNex
                     onChangeText={setTodoExpHours}
                   />
                   <TextInput
-                    style={[{ flex: 1, borderRadius: 14, padding: 14, fontSize: 13, backgroundColor: colors.background, color: colors.text }]}
+                    style={[{ flex: 1, borderRadius: 14, padding: 14, fontSize: 13, backgroundColor: colors.background, color: isDark ? colors.primary : colors.text }]}
                     placeholder="Minutes"
                     placeholderTextColor={colors.textVariant + '50'}
                     keyboardType="number-pad"
@@ -707,7 +708,7 @@ function TodoModal({ visible, initial, initialTag, onClose, onSave, onSaveAndNex
                 ))}
                 <View style={mStyles.subInputRow}>
                   <TextInput
-                    style={[mStyles.subInput, { backgroundColor: colors.background, color: colors.text, flex: 1 }]}
+                    style={[mStyles.subInput, { backgroundColor: colors.background, color: isDark ? colors.primary : colors.text, flex: 1 }]}
                     placeholder="Add subtask…" placeholderTextColor={colors.textVariant + '50'}
                     value={subInput} onChangeText={setSubInput}
                     onSubmitEditing={addSub} returnKeyType="done"
@@ -778,6 +779,7 @@ export default function TodosScreen() {
   const isFocused = useIsFocused();
 
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [activeTab, setActiveTab] = useState<'todo' | 'grocery'>('todo');
   const [archived, setArchived] = useState<Todo[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTag, setModalTag] = useState<Tag | undefined>();
@@ -966,71 +968,63 @@ export default function TodosScreen() {
 
   // Derived
   const filtered = useMemo(() => todos.filter(t => {
+    if (activeTab === 'todo' && t.tag === 'Shopping') return false;
+    if (activeTab === 'grocery' && t.tag !== 'Shopping') return false;
     if (!showDone && t.completed) return false;
     if (filterPri !== 'all' && t.priority !== filterPri) return false;
     if (search && !t.text.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
-  }), [todos, showDone, filterPri, search]);
+  }), [todos, showDone, filterPri, search, activeTab]);
 
   const active = useMemo(() => filtered.filter(t => !t.completed), [filtered]);
   const done = useMemo(() => filtered.filter(t => t.completed), [filtered]);
 
   const listData = useMemo(() => {
-    const activeItems = filtered.filter(t => !t.completed && t.tag !== 'Shopping');
-    const doneItems = filtered.filter(t => t.completed && t.tag !== 'Shopping');
-    const activeGrocery = filtered.filter(t => !t.completed && t.tag === 'Shopping');
-    const doneGrocery = filtered.filter(t => t.completed && t.tag === 'Shopping');
-
-    // 1. Group items by Date
-    const groups: Record<string, Todo[]> = {};
-    activeItems.forEach(t => {
-      let groupKey = 'TODAY';
-      if (t.dueDate) {
-         const d = new Date(t.dueDate);
-         const today = new Date();
-         if (d.toDateString() !== today.toDateString()) {
-           groupKey = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase();
-         }
-      }
-      if (!groups[groupKey]) groups[groupKey] = [];
-      groups[groupKey].push(t);
-    });
-
-    // Sort items within each group by priority
-    const priorityWeight: Record<Priority, number> = { high: 3, med: 2, low: 1 };
-    Object.keys(groups).forEach(k => {
-      groups[k].sort((a, b) => priorityWeight[b.priority] - priorityWeight[a.priority]);
-    });
-
-    // 2. Build the list with headers
     let result: any[] = [];
+    if (activeTab === 'todo') {
+      const groups: Record<string, Todo[]> = {};
+      active.forEach(t => {
+        let groupKey = 'TODAY';
+        if (t.dueDate) {
+           const d = new Date(t.dueDate);
+           const today = new Date();
+           if (d.toDateString() !== today.toDateString()) {
+             groupKey = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase();
+           }
+        }
+        if (!groups[groupKey]) groups[groupKey] = [];
+        groups[groupKey].push(t);
+      });
 
-    // 'TODAY' goes first, then sorted by date ascending
-    const sortedDates = Object.keys(groups).sort((a, b) => {
-      if (a === 'TODAY') return -1;
-      if (b === 'TODAY') return 1;
-      return new Date(groups[a][0].dueDate!).getTime() - new Date(groups[b][0].dueDate!).getTime();
-    });
+      const priorityWeight: Record<Priority, number> = { high: 3, med: 2, low: 1 };
+      Object.keys(groups).forEach(k => {
+        groups[k].sort((a, b) => priorityWeight[b.priority] - priorityWeight[a.priority]);
+      });
 
-    sortedDates.forEach(k => {
-      result.push({ isHeader: true, title: k });
-      result.push(...groups[k]);
-    });
+      const sortedDates = Object.keys(groups).sort((a, b) => {
+        if (a === 'TODAY') return -1;
+        if (b === 'TODAY') return 1;
+        return new Date(groups[a][0].dueDate!).getTime() - new Date(groups[b][0].dueDate!).getTime();
+      });
 
-    if (activeGrocery.length > 0) {
-      result.push({ isGroceryCard: true, items: activeGrocery });
-    }
+      sortedDates.forEach(k => {
+        result.push({ isHeader: true, title: k });
+        result.push(...groups[k]);
+      });
 
-    // 3. Completed at end
-    if (doneItems.length > 0 || doneGrocery.length > 0) {
-      result.push({ isHeader: true, title: 'COMPLETED' });
-      if (doneGrocery.length > 0) {
-        result.push({ isGroceryCard: true, items: doneGrocery, isCompletedGroup: true });
+      if (done.length > 0) {
+        result.push({ isHeader: true, title: 'COMPLETED' });
+        result.push(...done);
       }
-      result.push(...doneItems);
+    } else {
+      if (active.length > 0) result.push(...active);
+      if (done.length > 0) {
+        result.push({ isHeader: true, title: 'COMPLETED' });
+        result.push(...done);
+      }
     }
     return result;
-  }, [filtered]);
+  }, [active, done, activeTab]);
 
   const ritualTodos = useMemo(() => todos.filter(t => t.tag !== 'Shopping'), [todos]);
   const groceryTodos = useMemo(() => todos.filter(t => t.tag === 'Shopping'), [todos]);
@@ -1075,7 +1069,7 @@ export default function TodosScreen() {
                 <View style={s.headerTop}>
                   <View>
                     <Text style={[s.greeting, { color: colors.textVariant }]}>{getGreeting()}</Text>
-                    <Text style={[s.title, { color: colors.text }]}>Ritual List</Text>
+                    <Text style={[s.title, { color: colors.text }]}>{activeTab === 'todo' ? 'Ritual List' : 'Grocery List'}</Text>
                     <Text style={[s.dateSub, { color: colors.textVariant + '99' }]}>
                       {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                     </Text>
@@ -1093,43 +1087,55 @@ export default function TodosScreen() {
                   </View>
                 </View>
 
+                {/* Tabs */}
+                <View style={{ flexDirection: 'row', backgroundColor: isDark ? colors.surface + '88' : '#F0F2FF', borderRadius: 14, padding: 4, marginBottom: 18 }}>
+                  <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setActiveTab('todo'); }} style={{ flex: 1, paddingVertical: 10, backgroundColor: activeTab === 'todo' ? colors.primary : 'transparent', borderRadius: 10, alignItems: 'center', ...(activeTab === 'todo' ? Shadows.soft : {}) }}>
+                    <Text style={{ color: activeTab === 'todo' ? '#FFF' : colors.textVariant, fontWeight: '700', fontSize: scaleFontSize(13) }}>To-Do List</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { Haptics.selectionAsync(); setActiveTab('grocery'); }} style={{ flex: 1, paddingVertical: 10, backgroundColor: activeTab === 'grocery' ? (colors.secondary || '#FFA93A') : 'transparent', borderRadius: 10, alignItems: 'center', ...(activeTab === 'grocery' ? Shadows.soft : {}) }}>
+                    <Text style={{ color: activeTab === 'grocery' ? '#FFF' : colors.textVariant, fontWeight: '700', fontSize: scaleFontSize(13) }}>Grocery List</Text>
+                  </TouchableOpacity>
+                </View>
+
                 {/* Progress */}
-                {/* Dual Progress */}
                 <Animated.View style={[s.progCard, {
                   backgroundColor: colors.surface,
                   transform: [{ scale: successAnim }],
                 }]}>
                   <LinearGradient colors={isDark ? ['#1A1A2E', '#16213E'] : ['#F8F9FF', '#EEF0FF']} style={s.progInner}>
-                    {/* Ritual Progress */}
-                    <View style={s.progTop}>
-                      <View>
-                        <Text style={[s.progLbl, { color: colors.textVariant }]}>RITUAL TASKS</Text>
-                        <Text style={[s.progFrac, { color: colors.text }]}>
-                          {ritualDone}<Text style={{ color: colors.textVariant, fontSize: scaleFontSize(14) }}>/{total}</Text>
-                        </Text>
-                      </View>
-                      <Text style={[s.progPct, { color: colors.primary }]}>
-                        {total > 0 ? Math.round((ritualDone / total) * 100) : 0}%
-                      </Text>
-                    </View>
-                    <View style={[s.progBg, { backgroundColor: colors.background, marginBottom: gTotal > 0 ? 16 : 0 }]}>
-                      <Animated.View style={[s.progFill, { width: progressWidth }]}>
-                        <LinearGradient colors={[colors.primary, colors.primaryLight || colors.primary + 'AA']} style={{ flex: 1, borderRadius: 5 }} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} />
-                      </Animated.View>
-                    </View>
-
-                    {/* Grocery Progress (Conditional) */}
-                    {gTotal > 0 && (
+                    {activeTab === 'todo' ? (
+                      <>
+                        <View style={s.progTop}>
+                          <View>
+                            <Text style={[s.progLbl, { color: colors.textVariant }]}>RITUAL TASKS</Text>
+                            <Text style={[s.progFrac, { color: colors.text }]}>
+                              {ritualDone}<Text style={{ color: colors.textVariant, fontSize: scaleFontSize(14) }}>/{total}</Text>
+                            </Text>
+                          </View>
+                          <Text style={[s.progPct, { color: colors.primary }]}>
+                            {total > 0 ? Math.round((ritualDone / total) * 100) : 0}%
+                          </Text>
+                        </View>
+                        <View style={[s.progBg, { backgroundColor: colors.background }]}>
+                          <Animated.View style={[s.progFill, { width: progressWidth }]}>
+                            <LinearGradient colors={[colors.primary, colors.primaryLight || colors.primary + 'AA']} style={{ flex: 1, borderRadius: 5 }} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} />
+                          </Animated.View>
+                        </View>
+                        {total > 0 && ritualDone === total && (
+                          <Text style={[s.allDone, { color: colors.primary, marginTop: 10 }]}>🎉 Rituals crushed!</Text>
+                        )}
+                      </>
+                    ) : (
                       <>
                         <View style={s.progTop}>
                           <View>
                             <Text style={[s.progLbl, { color: colors.textVariant }]}>SHOPPING LIST</Text>
-                            <Text style={[s.progFrac, { color: colors.text, fontSize: scaleFontSize(18) }]}>
-                              {groceryDone}<Text style={{ color: colors.textVariant, fontSize: scaleFontSize(12) }}>/{gTotal}</Text>
+                            <Text style={[s.progFrac, { color: colors.text }]}>
+                              {groceryDone}<Text style={{ color: colors.textVariant, fontSize: scaleFontSize(14) }}>/{gTotal}</Text>
                             </Text>
                           </View>
-                          <Text style={[s.progPct, { color: colors.secondary || '#FFA93A', fontSize: scaleFontSize(16) }]}>
-                            {Math.round((groceryDone / gTotal) * 100)}%
+                          <Text style={[s.progPct, { color: colors.secondary || '#FFA93A' }]}>
+                            {gTotal > 0 ? Math.round((groceryDone / gTotal) * 100) : 0}%
                           </Text>
                         </View>
                         <View style={[s.progBg, { backgroundColor: colors.background }]}>
@@ -1137,11 +1143,10 @@ export default function TodosScreen() {
                             <LinearGradient colors={[colors.secondary || '#FFA93A', '#FFD700']} style={{ flex: 1, borderRadius: 5 }} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} />
                           </Animated.View>
                         </View>
+                        {gTotal > 0 && groceryDone === gTotal && (
+                          <Text style={[s.allDone, { color: colors.secondary || '#FFA93A', marginTop: 10 }]}>🎉 All items collected!</Text>
+                        )}
                       </>
-                    )}
-
-                    {total > 0 && ritualDone === total && (
-                      <Text style={[s.allDone, { color: colors.primary, marginTop: 10 }]}>🎉 Rituals crushed!</Text>
                     )}
                   </LinearGradient>
                 </Animated.View>
@@ -1150,7 +1155,7 @@ export default function TodosScreen() {
                 <View style={[s.searchBar, { backgroundColor: isDark ? colors.surface + 'CC' : '#FFFFFF', borderWidth: 1.5, borderColor: colors.primary + '18' }]}>
                   <Ionicons name="search" size={16} color={colors.primary} />
                   <TextInput
-                    style={[s.searchInput, { color: colors.text }]}
+                    style={[s.searchInput, { color: isDark ? colors.primary : colors.text }]}
                     placeholder="Find a task..." placeholderTextColor={colors.textVariant + '66'}
                     value={search} onChangeText={setSearch} returnKeyType="search"
                   />
@@ -1163,7 +1168,7 @@ export default function TodosScreen() {
 
                 {/* Filter chips */}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16, alignItems: 'center' }}>
-                  {(['all', 'high', 'med', 'low'] as const).map(f => (
+                  {activeTab === 'todo' && (['all', 'high', 'med', 'low'] as const).map(f => (
                     <TouchableOpacity key={f}
                       onPress={() => { Haptics.selectionAsync(); setFilterPri(f); }}
                       style={[s.chip, { backgroundColor: filterPri === f ? colors.primary : colors.surface }]}
@@ -1173,10 +1178,10 @@ export default function TodosScreen() {
                       </Text>
                     </TouchableOpacity>
                   ))}
-                  <View style={[s.divider, { backgroundColor: colors.textVariant + '28', marginHorizontal: 2 }]} />
+                  {activeTab === 'todo' && <View style={[s.divider, { backgroundColor: colors.textVariant + '28', marginHorizontal: 2 }]} />}
                   <TouchableOpacity
                     onPress={() => { Haptics.selectionAsync(); setShowDone(v => !v); }}
-                    style={[s.chip, { backgroundColor: !showDone ? colors.primary + '18' : colors.surface, borderWidth: 1.5, borderColor: !showDone ? colors.primary : 'transparent' }]}
+                    style={[s.chip, { backgroundColor: !showDone ? (activeTab === 'grocery' ? (colors.secondary || '#FFA93A') + '18' : colors.primary + '18') : colors.surface, borderWidth: 1.5, borderColor: !showDone ? (activeTab === 'grocery' ? (colors.secondary || '#FFA93A') : colors.primary) : 'transparent' }]}
                   >
                     <Ionicons name={showDone ? 'eye-outline' : 'eye-off-outline'} size={13} color={colors.textVariant} />
                   </TouchableOpacity>
@@ -1190,27 +1195,6 @@ export default function TodosScreen() {
             if (item.isHeader) {
                return <Text style={[s.secLbl, { color: colors.textVariant, marginTop: index > 0 ? 12 : 0 }]}>{item.title}</Text>;
             }
-            if (item.isGroceryCard) {
-               return (
-                 <View style={{ backgroundColor: item.isCompletedGroup ? colors.surface + '88' : colors.surface, borderRadius: 24, padding: 18, marginBottom: 16, marginTop: 6, ...Shadows.soft }}>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                     <Ionicons name="cart" size={20} color={colors.secondary || '#FFA93A'} style={{ marginRight: 8 }} />
-                     <Text style={{ ...Typography.header, fontSize: scaleFontSize(16), color: item.isCompletedGroup ? colors.textVariant : colors.text }}>Grocery List</Text>
-                   </View>
-                   {item.items.map((gItem: Todo, gIndex: number) => (
-                     <TodoItem key={gItem.id} item={gItem} onToggle={toggleTodo} onToggleSubtask={toggleSubtask} onDelete={deleteTodo}
-                       onEdit={t => { setEditingTodo(t); setModalOpen(true); }}
-                       onArchive={archiveTodo} colors={colors} isDark={isDark} index={gIndex} entryAnim={entryAnim} isCardChild={true} />
-                   ))}
-                   {!item.isCompletedGroup && (
-                     <TouchableOpacity onPress={() => openAction('Shopping')} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 4 }}>
-                       <Ionicons name="add" size={18} color={colors.primary} />
-                       <Text style={{ color: colors.primary, fontWeight: '700', marginLeft: 6 }}>Add Item</Text>
-                     </TouchableOpacity>
-                   )}
-                 </View>
-               );
-            }
 
             return (
               <TodoItem item={item} onToggle={toggleTodo} onToggleSubtask={toggleSubtask} onDelete={deleteTodo}
@@ -1220,11 +1204,11 @@ export default function TodosScreen() {
           }}
           ListEmptyComponent={
             <Animated.View style={[s.empty, { opacity: entryAnim }]}>
-              <LinearGradient colors={[colors.primary + '05', colors.primary + '15']} style={s.emptyCircle}>
-                <Ionicons name="sparkles-outline" size={40} color={colors.primary} />
+              <LinearGradient colors={activeTab === 'grocery' ? [(colors.secondary || '#FFA93A') + '05', (colors.secondary || '#FFA93A') + '15'] : [colors.primary + '05', colors.primary + '15']} style={s.emptyCircle}>
+                <Ionicons name={activeTab === 'grocery' ? "basket-outline" : "sparkles-outline"} size={40} color={activeTab === 'grocery' ? (colors.secondary || '#FFA93A') : colors.primary} />
               </LinearGradient>
-              <Text style={[s.emptyTitle, { color: colors.text }]}>All clear today</Text>
-              <Text style={[s.emptySub, { color: colors.textVariant }]}>No tasks found. Enjoy your focus time or add a new goal.</Text>
+              <Text style={[s.emptyTitle, { color: colors.text }]}>{activeTab === 'grocery' ? 'Your cart is empty' : 'All clear today'}</Text>
+              <Text style={[s.emptySub, { color: colors.textVariant }]}>{activeTab === 'grocery' ? 'Add some items to your grocery list.' : 'No tasks found. Enjoy your focus time or add a new goal.'}</Text>
             </Animated.View>
           }
           ListFooterComponent={<View style={{ height: 170 }} />}
@@ -1233,22 +1217,15 @@ export default function TodosScreen() {
         {/* Direct Action FABs */}
         <Animated.View style={[s.fabBase, { transform: [{ scale: fabScale }] }]}>
           <TouchableOpacity
-            onPress={() => openAction('Shopping')}
+            onPress={() => openAction(activeTab === 'grocery' ? 'Shopping' : undefined)}
             activeOpacity={0.8}
-            style={[s.fabAlways, { overflow: 'hidden' }]}
+            style={[s.fabAlways, { backgroundColor: activeTab === 'grocery' ? (colors.secondary || '#FFA93A') : colors.primary }]}
           >
-            <LinearGradient colors={[colors.secondary || '#FFA93A', colors.secondary ? colors.secondary + 'CC' : '#FF8C00']} style={s.fabAlwaysGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-              <Ionicons name="cart-outline" size={26} color="#FFF" />
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => openAction(undefined)}
-            activeOpacity={0.8}
-            style={[s.fabAlways, { backgroundColor: colors.primary }]}
-          >
-            <LinearGradient colors={[colors.primary, colors.primaryLight || colors.primary + 'DD']} style={s.fabAlwaysGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-              <Ionicons name="add" size={30} color="#FFF" />
+            <LinearGradient 
+              colors={activeTab === 'grocery' ? [(colors.secondary || '#FFA93A'), (colors.secondary || '#FFA93A') + 'CC'] : [colors.primary, colors.primaryLight || colors.primary + 'DD']} 
+              style={s.fabAlwaysGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name={activeTab === 'grocery' ? "cart" : "add"} size={30} color="#FFF" />
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>
@@ -1365,8 +1342,8 @@ const s = StyleSheet.create({
   headerBtns: { flexDirection: 'row', gap: 7, marginTop: 3 },
   hBtn: { width: 38, height: 38, borderRadius: 12, justifyContent: 'center', alignItems: 'center', ...Shadows.soft },
 
-  progCard: { borderRadius: 20, overflow: 'hidden', marginBottom: 14, ...Shadows.soft },
-  progInner: { padding: 17 },
+  progCard: { borderRadius: 20, marginBottom: 14, ...Shadows.soft },
+  progInner: { padding: 17, borderRadius: 20 },
   progTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 11 },
   progLbl: { fontSize: scaleFontSize(9), fontWeight: '800', letterSpacing: 1.5, marginBottom: 2 },
   progFrac: { fontSize: scaleFontSize(25), fontWeight: '800' },
@@ -1391,8 +1368,8 @@ const s = StyleSheet.create({
   progSummary: { fontSize: scaleFontSize(10), fontWeight: '700', marginTop: -4, marginBottom: 10, letterSpacing: 0.2 },
 
   fabBase: { position: 'absolute', bottom: 36, right: 28, alignItems: 'center', gap: 12 },
-  fabAlways: { width: 58, height: 58, borderRadius: 29, overflow: 'hidden', ...Shadows.strong },
-  fabAlwaysGrad: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  fabAlways: { width: 58, height: 58, borderRadius: 29, ...Shadows.strong },
+  fabAlwaysGrad: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 29 },
 
   toastWrap: { position: 'absolute', bottom: 100, left: 0, right: 0 },
 
