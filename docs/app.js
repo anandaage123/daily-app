@@ -30,7 +30,13 @@ const addTaskBtn = document.getElementById('add-task-btn');
 
 /* Initialize */
 function init() {
-    connectionCode = Array.from({length: 6}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.charAt(Math.floor(Math.random() * 36))).join('');
+    const savedCode = localStorage.getItem('monolith_web_sync_code');
+    if (savedCode) {
+        connectionCode = savedCode;
+    } else {
+        connectionCode = Array.from({length: 6}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.charAt(Math.floor(Math.random() * 36))).join('');
+        localStorage.setItem('monolith_web_sync_code', connectionCode);
+    }
     codeDisplay.value = connectionCode;
     
     // Connect to Web Socket automatically
@@ -54,6 +60,14 @@ function init() {
             });
         });
     });
+
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('monolith_web_sync_code');
+            window.location.reload();
+        });
+    }
 
     // Timer Controls
     document.getElementById('timer-start').addEventListener('click', () => {
