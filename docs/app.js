@@ -110,7 +110,7 @@ function init() {
 }
 
 function startListening() {
-    ws = new WebSocket('wss://socketsbay.com/wss/v2/1/demo/');
+    ws = new WebSocket(`wss://free.blr2.piesocket.com/v3/${connectionCode}?api_key=6gyNU01H5lr7Q8g2ern3HwMLg3MAcysgXPxfZA7C&notify_self=1`);
     
     ws.onopen = () => {
         isConnected = true;

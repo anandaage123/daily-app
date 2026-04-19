@@ -39,8 +39,8 @@ export const startSyncService = async (providedCode?: string) => {
   await AsyncStorage.setItem('@monolith_sync_code', code);
   const channelId = `monolith_sync_${code}`;
   
-  // Connect to public relay
-  ws = new WebSocket('wss://socketsbay.com/wss/v2/1/demo/');
+  // Connect to private cluster with the connection code as the channel ID
+  ws = new WebSocket(`wss://free.blr2.piesocket.com/v3/${code}?api_key=6gyNU01H5lr7Q8g2ern3HwMLg3MAcysgXPxfZA7C&notify_self=1`);
   
   ws.onopen = () => {
     console.log('[SyncService] Connected using code:', code);
