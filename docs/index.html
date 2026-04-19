@@ -31,7 +31,6 @@
             <nav class="nav-menu" style="display: flex; flex-direction: column; height: 100%;">
                 <button class="nav-item active" data-target="dashboard">Dashboard</button>
                 <button class="nav-item" data-target="todos">Tasks</button>
-                <button class="nav-item" data-target="budget">Budget</button>
                 <button class="nav-item" data-target="focus">Focus Timer</button>
                 <button class="nav-item" data-target="journal">Journal</button>
                 
@@ -122,35 +121,6 @@
                 
                 <ul id="task-list" class="task-list">
                     <!-- Tasks will be injected here via JS -->
-                </ul>
-            </section>
-
-            <!-- Budget View -->
-            <section id="view-budget" class="view hidden">
-                <header>
-                    <h2>Daily Wallet</h2>
-                    <p class="subtitle">Live Ledger & Budget Health</p>
-                </header>
-
-                <div class="bento-grid" style="margin-bottom: 32px;">
-                    <div class="bento-box" style="flex: 1;">
-                        <h3>Available Balance</h3>
-                        <h1 id="budget-balance" style="color: var(--success);">$0</h1>
-                        <p id="budget-spent-label" style="color: var(--text-muted); margin-top: 8px;">Spent: $0 / $0 limit</p>
-                    </div>
-                </div>
-
-                <div class="task-input-row">
-                    <input type="text" id="new-expense-title" placeholder="What did you buy?" style="flex: 2;" />
-                    <input type="number" id="new-expense-amount" placeholder="$ Amount" style="flex: 1;" />
-                    <button id="add-expense-btn" class="primary-btn">Log</button>
-                </div>
-
-                <header style="margin-top: 32px; margin-bottom: 16px;">
-                    <h3>Recent Transactions</h3>
-                </header>
-                <ul id="expense-list" class="task-list">
-                    <!-- Expenses will be injected here via JS -->
                 </ul>
             </section>
 

@@ -426,15 +426,6 @@ export default function DashboardScreen() {
 
         const rawHabits = await AsyncStorage.getItem('@habits_v3');
         let currentHabits = rawHabits ? JSON.parse(rawHabits) : [];
-        
-        const currentMonthKey = new Date().toLocaleString('en-US', { month: 'short', year: 'numeric' });
-        const rawBudget = await AsyncStorage.getItem('@budget_limits_v3');
-        const budgetLimits = rawBudget ? JSON.parse(rawBudget) : {};
-        const limit = budgetLimits[currentMonthKey] || 50000;
-        
-        const rawExpenses = await AsyncStorage.getItem('@daily_expenses_v2');
-        const expenses = rawExpenses ? JSON.parse(rawExpenses) : [];
-        const spent = expenses.filter((e: any) => e.date.startsWith(currentMonthKey)).reduce((sum: number, e: any) => sum + e.amount, 0);
 
         if (type === 'REQUEST_FULL_STATE') {
           broadcastSyncUpdate('FULL_STATE_SYNC', {
@@ -442,8 +433,7 @@ export default function DashboardScreen() {
             timer: { isRunning: false, timeRemaining: 1500, mode: 'FOCUS' },
             tasks: formatTasks(tasks),
             notes: formatNotes(notes),
-            habits: currentHabits,
-            wallet: { limit, spent, transactions: expenses.slice(0, 10) }
+            habits: currentHabits
           });
         }
         else if (type === 'HABIT_TOGGLE') {
@@ -495,18 +485,6 @@ export default function DashboardScreen() {
           notes.unshift(newNote);
           await AsyncStorage.setItem('@daily_notes_v3', JSON.stringify(notes));
           broadcastSyncUpdate('NOTE_STATE_UPDATE', { notes: formatNotes(notes) });
-        }
-        else if (type === 'EXPENSE_ADD') {
-          const newExpense = {
-             id: `exp-${Date.now()}`,
-             title: payload.title || 'Remote Expense',
-             amount: payload.amount || 0,
-             date: new Date().toISOString()
-          };
-          expenses.unshift(newExpense);
-          await AsyncStorage.setItem('@daily_expenses_v2', JSON.stringify(expenses));
-          const newSpent = expenses.filter((e: any) => e.date.startsWith(currentMonthKey)).reduce((sum: number, e: any) => sum + e.amount, 0);
-          broadcastSyncUpdate('FULL_STATE_SYNC', { ...payload, wallet: { limit, spent: newSpent, transactions: expenses.slice(0, 10) }}); // Update wallet only via full sync to avoid partial updates for now
         }
         else if (['TIMER_START', 'TIMER_PAUSE', 'TIMER_RESET'].includes(type)) {
           broadcastSyncUpdate('TIMER_STATE_UPDATE', {

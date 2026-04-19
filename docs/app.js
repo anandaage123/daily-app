@@ -126,18 +126,6 @@ function init() {
             contentInput.value = '';
         }
     });
-
-    // Budget Listeners
-    document.getElementById('add-expense-btn').addEventListener('click', () => {
-        // App side does not yet have EXPENSE_ADD handler implemented in Phase 1, but we can broadcast it for future.
-        const title = document.getElementById('new-expense-title').value.trim();
-        const amount = parseFloat(document.getElementById('new-expense-amount').value);
-        if (title && !isNaN(amount)) {
-            broadcastEvent('EXPENSE_ADD', { title, amount });
-            document.getElementById('new-expense-title').value = '';
-            document.getElementById('new-expense-amount').value = '';
-        }
-    });
 }
 
 function startListening() {
@@ -203,7 +191,6 @@ function handleRemoteEvent(type, payload) {
             if (payload.greeting) document.getElementById('greeting-text').innerText = payload.greeting;
             if (payload.notes) syncNotes(payload.notes);
             if (payload.habits) syncHabits(payload.habits);
-            if (payload.wallet) syncWallet(payload.wallet);
             break;
             
         case 'TIMER_STATE_UPDATE':
@@ -400,37 +387,5 @@ function renderHabits() {
         
         list.appendChild(div);
     });
-}
-
-/* Wallet Logic */
-function syncWallet(wallet) {
-    if (!wallet) return;
-    const balanceElem = document.getElementById('budget-balance');
-    const spentElem = document.getElementById('budget-spent-label');
-    const list = document.getElementById('expense-list');
-    
-    const available = wallet.limit - wallet.spent;
-    if (balanceElem) {
-        balanceElem.innerText = '$' + available.toLocaleString();
-        if (wallet.spent > wallet.limit * 0.9) balanceElem.style.color = 'var(--danger)';
-        else balanceElem.style.color = 'var(--success)';
-    }
-    if (spentElem) spentElem.innerText = `Spent: $${wallet.spent.toLocaleString()} / $${wallet.limit.toLocaleString()} limit`;
-    
-    if (list && wallet.transactions) {
-        list.innerHTML = '';
-        wallet.transactions.forEach(t => {
-            const li = document.createElement('li');
-            li.className = 'task-item';
-            li.innerHTML = `
-                <div class="task-content">
-                    <span style="font-weight: 600;">${t.title}</span>
-                    <span style="display: block; font-size: 12px; color: var(--text-muted); margin-top: 4px;">${new Date(t.date).toLocaleDateString()}</span>
-                </div>
-                <span style="color: var(--danger); font-weight: 700;">-$${t.amount}</span>
-            `;
-            list.appendChild(li);
-        });
-    }
 }
 
