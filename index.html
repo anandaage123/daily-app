@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monolith Remote | Focus & Sync</title>
+    <meta name="description" content="Web companion control for the Monolith Productivity App. Sync timers, tasks, and notes instantly via WebRTC.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="app.css">
+</head>
+<body>
+    <div id="connection-overlay">
+        <div class="glass-card connection-card">
+            <div class="logo">
+                <div class="pulse-ring"></div>
+                <h1>Monolith</h1>
+            </div>
+            <p>Enter the 6-character connection code from your Monolith App Dashboard to sync in real-time.</p>
+            
+            <div class="input-group">
+                <input type="text" id="sync-code-input" maxlength="6" placeholder="e.g. A9X2B4" autocomplete="off" spellcheck="false" />
+            </div>
+            
+            <button id="connect-btn" class="primary-btn">
+                <span class="btn-text">Establish Link</span>
+                <div class="btn-loader"></div>
+            </button>
+            <p id="connection-error" class="error-text"></p>
+        </div>
+    </div>
+
+    <div id="main-app" class="hidden">
+        <aside class="sidebar">
+            <div class="brand">Monolith</div>
+            <nav class="nav-menu">
+                <button class="nav-item active" data-target="dashboard">Dashboard</button>
+                <button class="nav-item" data-target="focus">Focus Timer</button>
+                <button class="nav-item" data-target="todos">Tasks</button>
+            </nav>
+            <div class="status-indicator">
+                <div class="status-dot online"></div>
+                <span id="remote-status">Connected to Remote</span>
+            </div>
+        </aside>
+
+        <main class="content-area">
+            <!-- Dashboard View -->
+            <section id="view-dashboard" class="view active">
+                <header>
+                    <h2>Dashboard</h2>
+                    <p class="subtitle" id="date-display">Today</p>
+                </header>
+                
+                <div class="bento-grid">
+                    <div class="bento-box greeting-box">
+                        <h3 id="greeting-text">Good afternoon.</h3>
+                        <p id="focus-summary">Let's dominate the day.</p>
+                    </div>
+                    <div class="bento-box stats-box">
+                        <h3>Active Tasks</h3>
+                        <h1 id="task-count">0</h1>
+                    </div>
+                    <div class="bento-box sync-box">
+                        <h3>Connection</h3>
+                        <p class="highlight" id="paired-code-display">SYNC-XXXXXX</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Focus View -->
+            <section id="view-focus" class="view hidden">
+                <header>
+                    <h2>Deep Focus</h2>
+                    <p class="subtitle">Remote Timer Control</p>
+                </header>
+                
+                <div class="timer-container">
+                    <div class="timer-circle">
+                        <svg class="progress-ring" width="280" height="280">
+                            <circle class="progress-ring__bg" stroke="rgba(136, 153, 255, 0.1)" stroke-width="12" fill="transparent" r="130" cx="140" cy="140"/>
+                            <circle class="progress-ring__circle" stroke="#8899FF" stroke-width="12" stroke-linecap="round" fill="transparent" r="130" cx="140" cy="140"/>
+                        </svg>
+                        <div class="time-display" id="time-display">25:00</div>
+                        <div class="timer-state" id="timer-state-label">Ready</div>
+                    </div>
+                    
+                    <div class="controls-row">
+                        <button id="timer-start" class="primary-btn">Start Session</button>
+                        <button id="timer-stop" class="secondary-btn">Pause</button>
+                        <button id="timer-reset" class="secondary-btn">Reset</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tasks View -->
+            <section id="view-todos" class="view hidden">
+                <header>
+                    <h2>Tasks & Priority</h2>
+                    <p class="subtitle">Live Syncing</p>
+                </header>
+                
+                <div class="task-input-row">
+                    <input type="text" id="new-task-input" placeholder="Add a new task..." />
+                    <button id="add-task-btn" class="primary-btn">Add</button>
+                </div>
+                
+                <ul id="task-list" class="task-list">
+                    <!-- Tasks will be injected here via JS -->
+                </ul>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
