@@ -111,8 +111,7 @@ function handleConnect() {
     connectBtn.classList.add('loading');
     
     // Setup WebSocket
-    const channelId = `monolith_sync_${code}`;
-    ws = new WebSocket(`wss://demo.piesocket.com/v3/${channelId}?api_key=${API_KEY}&notify_self=0`);
+    ws = new WebSocket('wss://socketsbay.com/wss/v2/1/demo/');
     
     ws.onopen = () => {
         isConnected = true;
@@ -131,7 +130,7 @@ function handleConnect() {
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            if (data && data.__monolith) {
+            if (data && data.__monolith && data.channel === connectionCode) {
                 handleRemoteEvent(data.type, data.payload);
             }
         } catch (e) {
@@ -156,6 +155,7 @@ function broadcastEvent(type, payload = {}) {
     if (ws && isConnected) {
         ws.send(JSON.stringify({
             __monolith: true,
+            channel: connectionCode,
             source: 'WEB',
             type,
             payload
