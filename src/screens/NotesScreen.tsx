@@ -26,6 +26,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { scaleFontSize } from '../utils/ResponsiveSize';
 import { useTheme } from '../context/ThemeContext';
 import { useAppSettings } from '../context/AppSettingsContext';
+import { broadcastSyncUpdate } from '../services/SyncService';
 import { JSX } from 'react/jsx-runtime';
 
 const { width } = Dimensions.get('window');
@@ -407,6 +408,8 @@ export default function NotesScreen() {
       : [newNote, ...notes];
     setNotes(updated);
     await AsyncStorage.setItem('@daily_notes_v3', JSON.stringify(updated));
+    const formatNotes = (ns: any[]) => ns.map(n => ({ id: n.id, title: n.title, content: n.content, date: n.date })).slice(0, 15);
+    broadcastSyncUpdate('FULL_STATE_SYNC', { notes: formatNotes(updated) });
     setIsEditing(false); setIsViewing(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
@@ -419,6 +422,8 @@ export default function NotesScreen() {
           const updated = notes.filter(n => n.id !== id);
           setNotes(updated);
           await AsyncStorage.setItem('@daily_notes_v3', JSON.stringify(updated));
+          const formatNotes = (ns: any[]) => ns.map(n => ({ id: n.id, title: n.title, content: n.content, date: n.date })).slice(0, 15);
+          broadcastSyncUpdate('FULL_STATE_SYNC', { notes: formatNotes(updated) });
           setIsEditing(false); setIsViewing(false);
         }
       },
@@ -429,6 +434,8 @@ export default function NotesScreen() {
     const updated = notes.map(n => n.id === id ? { ...n, isPinned: !n.isPinned } : n);
     setNotes(updated);
     await AsyncStorage.setItem('@daily_notes_v3', JSON.stringify(updated));
+    const formatNotes = (ns: any[]) => ns.map(n => ({ id: n.id, title: n.title, content: n.content, date: n.date })).slice(0, 15);
+    broadcastSyncUpdate('FULL_STATE_SYNC', { notes: formatNotes(updated) });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 

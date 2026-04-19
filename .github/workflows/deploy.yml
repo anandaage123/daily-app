@@ -3,7 +3,7 @@ name: Deploy Web Remote to Pages
 on:
   push:
     branches:
-      - master
+      - main
       - main
     paths:
       - 'web-remote/**'
