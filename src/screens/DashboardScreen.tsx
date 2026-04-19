@@ -416,11 +416,16 @@ export default function DashboardScreen() {
         const tasks = rawTodos ? JSON.parse(rawTodos) : [];
         const formatTasks = (ts: any[]) => ts.filter(t => !t.archived && t.tag !== 'Shopping').map(t => ({ id: t.id, title: t.text, completed: t.completed }));
 
+        const rawNotes = await AsyncStorage.getItem('@daily_notes_v3');
+        const notes = rawNotes ? JSON.parse(rawNotes) : [];
+        const formatNotes = (ns: any[]) => ns.map(n => ({ id: n.id, title: n.title, content: n.content, date: n.date })).slice(0, 15);
+
         if (type === 'REQUEST_FULL_STATE') {
           broadcastSyncUpdate('FULL_STATE_SYNC', {
             greeting: 'Good Day.',
             timer: { isRunning: false, timeRemaining: 1500, mode: 'FOCUS' },
-            tasks: formatTasks(tasks)
+            tasks: formatTasks(tasks),
+            notes: formatNotes(notes)
           });
         }
         else if (type === 'TASK_ADD') {

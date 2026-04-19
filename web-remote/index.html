@@ -36,6 +36,7 @@
                 <button class="nav-item active" data-target="dashboard">Dashboard</button>
                 <button class="nav-item" data-target="focus">Focus Timer</button>
                 <button class="nav-item" data-target="todos">Tasks</button>
+                <button class="nav-item" data-target="journal">Journal</button>
             </nav>
             <div class="status-indicator">
                 <div class="status-dot online"></div>
@@ -107,6 +108,18 @@
                 <ul id="task-list" class="task-list">
                     <!-- Tasks will be injected here via JS -->
                 </ul>
+            </section>
+
+            <!-- Journal View -->
+            <section id="view-journal" class="view hidden">
+                <header>
+                    <h2>Daily Notes</h2>
+                    <p class="subtitle">Your synced journal entries</p>
+                </header>
+                
+                <div id="journal-list" class="journal-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin-top: 1.5rem;">
+                    <!-- Notes will be injected here via JS -->
+                </div>
             </section>
         </main>
     </div>

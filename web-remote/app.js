@@ -170,6 +170,7 @@ function handleRemoteEvent(type, payload) {
             if (payload.tasks) syncTasks(payload.tasks);
             if (payload.timer) syncTimer(payload.timer);
             if (payload.greeting) document.getElementById('greeting-text').innerText = payload.greeting;
+            if (payload.notes) syncNotes(payload.notes);
             break;
             
         case 'TIMER_STATE_UPDATE':
@@ -269,3 +270,38 @@ function renderTasks() {
 }
 
 window.onload = init;
+
+/* Notes Logic */
+let notes = [];
+function syncNotes(newNotes) {
+    notes = newNotes || [];
+    renderNotes();
+}
+
+function renderNotes() {
+    const journalList = document.getElementById('journal-list');
+    if (!journalList) return;
+    journalList.innerHTML = '';
+    
+    if (notes.length === 0) {
+        journalList.innerHTML = '<p style="color: #666; font-style: italic;">No journal entries yet.</p>';
+        return;
+    }
+
+    notes.forEach(note => {
+        const div = document.createElement('div');
+        div.className = 'bento-box';
+        div.style.background = 'rgba(255, 255, 255, 0.03)';
+        div.style.border = '1px solid rgba(255, 255, 255, 0.05)';
+        
+        // Truncate content to keep UI clean
+        const contentPreview = note.content ? (note.content.length > 150 ? note.content.substring(0, 150) + '...' : note.content) : '';
+        
+        div.innerHTML = `
+            <h4 style="margin: 0 0 0.5rem 0; font-size: 1.1rem; color: #fff;">${note.title || 'Entry'}</h4>
+            <span style="font-size: 0.8rem; color: #8899FF; display: block; margin-bottom: 1rem;">${note.date || ''}</span>
+            <div style="font-size: 0.95rem; line-height: 1.5; color: #a0a0B0; white-space: pre-wrap;">${contentPreview}</div>
+        `;
+        journalList.appendChild(div);
+    });
+}
