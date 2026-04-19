@@ -27,7 +27,7 @@ import { scaleFontSize, scaleSize } from '../utils/ResponsiveSize';
 import { APP_VERSION, APP_BUILD } from '../services/UpdateService';
 import { useTheme } from '../context/ThemeContext';
 import { recordHabitCompleted, removeHabitCompleted } from '../services/DailyLogService';
-import { startSyncService, getSyncCode, subscribeToSync, broadcastSyncUpdate } from '../services/SyncService';
+import { startSyncService, getSyncCode, subscribeToSync, broadcastSyncUpdate, stopSyncService } from '../services/SyncService';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path, Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 
@@ -309,6 +309,8 @@ export default function DashboardScreen() {
   const [celebrateVisible, setCelebrateVisible] = useState(false);
   const [prevCompletionRate, setPrevCompletionRate] = useState(0);
   const [syncCode, setSyncCode] = useState<string>('------');
+  const [syncModalVisible, setSyncModalVisible] = useState(false);
+  const [tempSyncCode, setTempSyncCode] = useState('');
 
   // ── Animation refs ─────────────────────────────────────────────────────────
   const swipeRefs = useRef<{ [key: string]: Swipeable | null }>({}).current;
@@ -406,8 +408,10 @@ export default function DashboardScreen() {
 
   const initSync = async () => {
     const code = await getSyncCode();
-    setSyncCode(code);
-    await startSyncService();
+    setSyncCode(code || '------');
+    if (code) {
+      await startSyncService(code);
+    }
     
     // Process incoming control streams from web
     const unsub = subscribeToSync(async (type, payload) => {
@@ -461,6 +465,22 @@ export default function DashboardScreen() {
       }
     });
     return unsub;
+  };
+
+  const attemptConnect = async () => {
+    if (!tempSyncCode || tempSyncCode.length !== 6) return;
+    await startSyncService(tempSyncCode);
+    setSyncCode(tempSyncCode);
+    // Ping to full sync automatically
+    broadcastSyncUpdate('REQUEST_FULL_STATE', {}); // optional
+    setSyncModalVisible(false);
+    setTempSyncCode('');
+  };
+
+  const attemptDisconnect = async () => {
+    await stopSyncService();
+    setSyncCode('------');
+    setSyncModalVisible(false);
   };
 
   useEffect(() => {
@@ -998,6 +1018,12 @@ export default function DashboardScreen() {
               </Pressable>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <Pressable
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSyncModalVisible(true); }}
+                  style={({ pressed }) => [styles.headerBtn, { opacity: pressed ? 0.7 : 1 }]}
+                >
+                  <Ionicons name="desktop-outline" size={20} color={colors.primary} />
+                </Pressable>
+                <Pressable
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setThemeMode(isDark ? 'light' : 'dark'); }}
                   style={({ pressed }) => [styles.headerBtn, { opacity: pressed ? 0.7 : 1 }]}
                 >
@@ -1425,6 +1451,48 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Modal>
+      {/* ─ Sync Modal ─ */}
+      <Modal visible={syncModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSyncModalVisible(false)} />
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF', borderTopLeftRadius: 36, borderTopRightRadius: 36 }]}>
+            <Text style={[styles.modalTitle, { color: colors.text, textAlign: 'center', marginBottom: 24, fontSize: scaleFontSize(20) }]}>Web Remote Setup</Text>
+            
+            {syncCode === '------' ? (
+              <View>
+                <Text style={{ fontSize: scaleFontSize(14), color: colors.textVariant, marginBottom: 12, textAlign: 'center' }}>Enter the 6-character code from your Web App screen to sync in real-time.</Text>
+                <TextInput
+                  style={{ backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7', color: colors.text, borderRadius: 16, padding: 20, fontSize: scaleFontSize(24), textAlign: 'center', letterSpacing: 8, fontWeight: '800' }}
+                  maxLength={6}
+                  placeholder="CODE"
+                  placeholderTextColor={colors.textVariant + '50'}
+                  autoCapitalize="characters"
+                  value={tempSyncCode}
+                  onChangeText={(t) => setTempSyncCode(t.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                />
+                <Pressable style={({ pressed }) => [{ backgroundColor: colors.primary, marginTop: 24, borderRadius: 16, padding: 20, alignItems: 'center' }, { opacity: pressed ? 0.8 : 1 }]} onPress={attemptConnect}>
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: scaleFontSize(16) }}>Establish Link</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View>
+                <View style={{ backgroundColor: 'rgba(136, 153, 255, 0.1)', padding: 24, borderRadius: 20, alignItems: 'center', marginBottom: 24 }}>
+                  <Text style={{ fontSize: scaleFontSize(14), color: colors.textVariant, marginBottom: 8, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 }}>Active Link</Text>
+                  <Text style={{ fontSize: scaleFontSize(36), fontWeight: '900', letterSpacing: 6, color: colors.primary }}>{syncCode}</Text>
+                  <Text style={{ fontSize: scaleFontSize(13), color: colors.primary, marginTop: 12, opacity: 0.8 }}>Data successfully synced with Web.</Text>
+                </View>
+                <Pressable style={({ pressed }) => [{ backgroundColor: 'rgba(255, 107, 107, 0.1)', borderWidth: 1, borderColor: '#FF6B6B', marginTop: 8, borderRadius: 16, padding: 18, alignItems: 'center' }, { opacity: pressed ? 0.8 : 1 }]} onPress={attemptDisconnect}>
+                  <Text style={{ color: '#FF6B6B', fontWeight: '800', fontSize: scaleFontSize(16), letterSpacing: 0.5 }}>Unlink Session</Text>
+                </Pressable>
+              </View>
+            )}
+            <Pressable style={{ marginTop: 24, alignItems: 'center', padding: 12 }} onPress={() => setSyncModalVisible(false)}>
+              <Text style={{ color: colors.textVariant, fontWeight: '700', letterSpacing: 0.5 }}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
     </View>
     </GestureHandlerRootView>
   );

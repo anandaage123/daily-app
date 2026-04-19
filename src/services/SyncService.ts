@@ -20,30 +20,23 @@ const notifySubscribers = (type: string, payload: any) => {
   subscribers.forEach(cb => cb(type, payload));
 };
 
-export const getSyncCode = async (): Promise<string> => {
+export const getSyncCode = async (): Promise<string | null> => {
   if (syncCode) return syncCode;
-  
   const cached = await AsyncStorage.getItem('@monolith_sync_code');
   if (cached) {
     syncCode = cached;
     return cached;
   }
-  
-  // Generate a new 6-character code
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
+  return null;
+};
+
+export const startSyncService = async (providedCode?: string) => {
+  if (ws) return; // Already running
+  const code = providedCode || await getSyncCode();
+  if (!code) return; // No code provided, do not connect
   
   syncCode = code;
   await AsyncStorage.setItem('@monolith_sync_code', code);
-  return code;
-};
-
-export const startSyncService = async () => {
-  if (ws) return; // Already running
-  const code = await getSyncCode();
   const channelId = `monolith_sync_${code}`;
   
   // Connect to public relay
@@ -65,10 +58,19 @@ export const startSyncService = async () => {
   };
   
   ws.onclose = () => {
-    console.log('[SyncService] Disconnected. Reconnecting in 5s...');
+    console.log('[SyncService] Disconnected.');
     ws = null;
-    setTimeout(startSyncService, 5000);
+    // We do not auto-reconnect anymore to save background resources. They must reconnect manually.
   };
+};
+
+export const stopSyncService = async () => {
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
+  syncCode = null;
+  await AsyncStorage.removeItem('@monolith_sync_code');
 };
 
 export const broadcastSyncUpdate = async (type: string, payload: any) => {

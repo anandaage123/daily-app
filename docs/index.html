@@ -15,17 +15,13 @@
                 <div class="pulse-ring"></div>
                 <h1>Monolith</h1>
             </div>
-            <p>Enter the 6-character connection code from your Monolith App Dashboard to sync in real-time.</p>
+            <p>Enter this pairing code in your Monolith App (Dashboard -> Top Right Settings)</p>
             
             <div class="input-group">
-                <input type="text" id="sync-code-input" maxlength="6" placeholder="e.g. A9X2B4" autocomplete="off" spellcheck="false" />
+                <input type="text" id="sync-code-display" readonly style="letter-spacing: 4px; text-align: center; font-size: 2rem; font-weight: bold; background: transparent; border: none; color: #8899FF;" value="------" />
             </div>
             
-            <button id="connect-btn" class="primary-btn">
-                <span class="btn-text">Establish Link</span>
-                <div class="btn-loader"></div>
-            </button>
-            <p id="connection-error" class="error-text"></p>
+            <p id="connection-error" class="error-text" style="color: #666; font-style: italic;">Waiting for app connection...</p>
         </div>
     </div>
 

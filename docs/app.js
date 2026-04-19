@@ -6,8 +6,7 @@ let isConnected = false;
 // DOM Elements
 const overlay = document.getElementById('connection-overlay');
 const mainApp = document.getElementById('main-app');
-const connectBtn = document.getElementById('connect-btn');
-const codeInput = document.getElementById('sync-code-input');
+const codeDisplay = document.getElementById('sync-code-display');
 const errorText = document.getElementById('connection-error');
 const remoteStatus = document.getElementById('remote-status');
 const navItems = document.querySelectorAll('.nav-item');
@@ -31,15 +30,11 @@ const addTaskBtn = document.getElementById('add-task-btn');
 
 /* Initialize */
 function init() {
-    codeInput.addEventListener('input', (e) => {
-        e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    });
+    connectionCode = Array.from({length: 6}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.charAt(Math.floor(Math.random() * 36))).join('');
+    codeDisplay.value = connectionCode;
     
-    connectBtn.addEventListener('click', handleConnect);
-    
-    codeInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleConnect();
-    });
+    // Connect to Web Socket automatically
+    startListening();
 
     // Navigation
     navItems.forEach(item => {
@@ -100,37 +95,29 @@ function init() {
     });
 }
 
-function handleConnect() {
-    const code = codeInput.value;
-    if (code.length < 6) {
-        errorText.innerText = "Please enter a valid 6-character code.";
-        return;
-    }
-    
-    errorText.innerText = "";
-    connectBtn.classList.add('loading');
-    
-    // Setup WebSocket
+function startListening() {
     ws = new WebSocket('wss://socketsbay.com/wss/v2/1/demo/');
     
     ws.onopen = () => {
         isConnected = true;
-        connectionCode = code;
-        connectBtn.classList.remove('loading');
-        overlay.classList.add('hidden');
-        mainApp.classList.remove('hidden');
-        
-        document.getElementById('paired-code-display').innerText = code;
-        remoteStatus.innerText = "Secured Link Established";
-        
-        // Request full state sync from app
-        broadcastEvent('REQUEST_FULL_STATE');
+        // Wait for app to send FULL_STATE_SYNC. When it does, we assume pairing is done.
     };
     
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
             if (data && data.__monolith && data.channel === connectionCode) {
+                // If this is the first real message, hide overlay
+                if (!overlay.classList.contains('hidden')) {
+                    overlay.classList.add('hidden');
+                    mainApp.classList.remove('hidden');
+                    document.getElementById('paired-code-display').innerText = connectionCode;
+                    remoteStatus.innerText = "Secured Link Established";
+                    
+                    // Request full state back just in case, though the app should broadcast FULL_STATE_SYNC automatically.
+                    broadcastEvent('REQUEST_FULL_STATE');
+                }
+                
                 handleRemoteEvent(data.type, data.payload);
             }
         } catch (e) {
@@ -140,8 +127,7 @@ function handleConnect() {
     
     ws.onerror = () => {
         isConnected = false;
-        connectBtn.classList.remove('loading');
-        errorText.innerText = "Connection failed. Please verify the code and network.";
+        errorText.innerText = "Connection to relay failed. Refresh the page.";
     };
     
     ws.onclose = () => {
