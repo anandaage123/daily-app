@@ -49,12 +49,15 @@ function OrbitalArc({
   duration: number; reverse?: boolean;
 }) {
   const spin = useRef(new Animated.Value(0)).current;
+  const loopRef = useRef<Animated.CompositeAnimation | null>(null);
   useEffect(() => {
-    Animated.loop(
+    loopRef.current = Animated.loop(
       Animated.timing(spin, {
         toValue: 1, duration, easing: Easing.linear, useNativeDriver: true,
       }),
-    ).start();
+    );
+    loopRef.current.start();
+    return () => { loopRef.current?.stop(); };
   }, []);
   const rotate = spin.interpolate({
     inputRange: [0, 1],
@@ -88,8 +91,9 @@ const STARS = Array.from({ length: 60 }, (_, i) => ({
 
 function TwinklingStar({ star }: { star: typeof STARS[0] }) {
   const anim = useRef(new Animated.Value(star.op)).current;
+  const loopRef = useRef<Animated.CompositeAnimation | null>(null);
   useEffect(() => {
-    Animated.loop(
+    loopRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(anim, {
           toValue: star.op * 0.15, duration: star.dur,
@@ -100,7 +104,9 @@ function TwinklingStar({ star }: { star: typeof STARS[0] }) {
           easing: Easing.inOut(Easing.sin), useNativeDriver: true,
         }),
       ]),
-    ).start();
+    );
+    loopRef.current.start();
+    return () => { loopRef.current?.stop(); };
   }, []);
   return (
     <Animated.View
@@ -132,8 +138,9 @@ function GlowOrb({
   cx: number; cy: number; size: number; color: string; opacity: number; dur: number;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
+  const loopRef = useRef<Animated.CompositeAnimation | null>(null);
   useEffect(() => {
-    Animated.loop(
+    loopRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(scale, {
           toValue: 1.18, duration: dur,
@@ -144,7 +151,9 @@ function GlowOrb({
           easing: Easing.inOut(Easing.sin), useNativeDriver: true,
         }),
       ]),
-    ).start();
+    );
+    loopRef.current.start();
+    return () => { loopRef.current?.stop(); };
   }, []);
   return (
     <Animated.View
@@ -210,21 +219,25 @@ function EnterButton({ onPress, visible }: { onPress: () => void; visible: Anima
   const ripple = useRef(new Animated.Value(0)).current;
   const rippleOp = useRef(new Animated.Value(0)).current;
   const pressScale = useRef(new Animated.Value(1)).current;
-  const borderGlow = useRef(new Animated.Value(0)).current;
+  // Use opacity pulse (useNativeDriver:true) instead of borderColor loop (useNativeDriver:false)
+  const glowOpacity = useRef(new Animated.Value(0.3)).current;
+  const glowLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
-    Animated.loop(
+    glowLoopRef.current = Animated.loop(
       Animated.sequence([
-        Animated.timing(borderGlow, {
+        Animated.timing(glowOpacity, {
           toValue: 1, duration: 1800,
-          easing: Easing.inOut(Easing.sin), useNativeDriver: false,
+          easing: Easing.inOut(Easing.sin), useNativeDriver: true,
         }),
-        Animated.timing(borderGlow, {
-          toValue: 0, duration: 1800,
-          easing: Easing.inOut(Easing.sin), useNativeDriver: false,
+        Animated.timing(glowOpacity, {
+          toValue: 0.3, duration: 1800,
+          easing: Easing.inOut(Easing.sin), useNativeDriver: true,
         }),
       ]),
-    ).start();
+    );
+    glowLoopRef.current.start();
+    return () => { glowLoopRef.current?.stop(); };
   }, []);
 
   const handlePressIn = () =>
@@ -255,9 +268,6 @@ function EnterButton({ onPress, visible }: { onPress: () => void; visible: Anima
   const rippleScale = ripple.interpolate({
     inputRange: [0, 1], outputRange: [0.2, 2.4],
   });
-  const borderColor = borderGlow.interpolate({
-    inputRange: [0, 1], outputRange: [T.border, T.accentMid],
-  });
 
   return (
     <Animated.View style={{ opacity: visible, transform: [{ scale: pressScale }] }}>
@@ -267,7 +277,8 @@ function EnterButton({ onPress, visible }: { onPress: () => void; visible: Anima
         onPressOut={handlePressOut}
         style={{ alignItems: 'center' }}
       >
-        <Animated.View style={[styles.enterBtn, { borderColor }]}>
+        {/* glowOpacity drives border visibility via a wrapper — avoids layout-prop animation */}
+        <Animated.View style={[styles.enterBtn, { opacity: glowOpacity }]}>
           <Animated.View
             style={[styles.ripple, { opacity: rippleOp, transform: [{ scale: rippleScale }] }]}
           />
@@ -917,8 +928,10 @@ export default function App() {
     });
   }, []);
 
+  const corePulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+
   useEffect(() => {
-    Animated.loop(
+    corePulseLoopRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(corePulse, {
           toValue: 1.12, duration: 1600,
@@ -929,7 +942,8 @@ export default function App() {
           easing: Easing.inOut(Easing.sin), useNativeDriver: true,
         }),
       ]),
-    ).start();
+    );
+    corePulseLoopRef.current.start();
 
     Animated.parallel([
       Animated.timing(masterFade, { toValue: 1, duration: 300, useNativeDriver: true }),
@@ -956,7 +970,11 @@ export default function App() {
         } catch (_) { }
       }
     });
-    return () => { sub.remove(); };
+    return () => {
+      sub.remove();
+      // Stop corePulse loop when splash unmounts — frees CPU/GPU
+      corePulseLoopRef.current?.stop();
+    };
   }, []);
 
   if (showSplash) {

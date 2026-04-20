@@ -305,12 +305,19 @@ export default function DashboardScreen() {
   const [showHourlyExpanded, setShowHourlyExpanded] = useState(false);
 
   const [quote, setQuote] = useState({ text: "Crafting your morning inspiration...", author: "Daily Hub" });
+  // Cached quote pool — fetched once, reused on swipe to avoid repeated 1600-item network calls
+  const quotesPoolRef = useRef<Array<{ text: string; author: string }>>([]);
 
   const [celebrateVisible, setCelebrateVisible] = useState(false);
   const [prevCompletionRate, setPrevCompletionRate] = useState(0);
   const [syncCode, setSyncCode] = useState<string>('------');
   const [syncModalVisible, setSyncModalVisible] = useState(false);
   const [tempSyncCode, setTempSyncCode] = useState('');
+  // Weather: track last fetch time to avoid redundant GPS+network calls
+  const lastWeatherFetchRef = useRef<number>(0);
+  const WEATHER_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
+  // Habit reset: track last-reset date to avoid running on every screen focus
+  const lastHabitResetDateRef = useRef<string>('');
 
   // ── Animation refs ─────────────────────────────────────────────────────────
   const swipeRefs = useRef<{ [key: string]: Swipeable | null }>({}).current;
@@ -355,10 +362,15 @@ export default function DashboardScreen() {
     return dateString === yesterday.toISOString().split('T')[0];
   };
 
-  const getMotivationalMessage = (rate: number) => {
+  // Stable ref so message doesn't change on every render
+  const motivationalMsgRef = useRef('');
+  const getMotivationalMessage = useCallback((rate: number) => {
     const bucket = MOTIVATIONAL_MESSAGES.find(m => rate >= m.threshold)!;
-    return bucket.messages[Math.floor(Math.random() * bucket.messages.length)];
-  };
+    if (!motivationalMsgRef.current) {
+      motivationalMsgRef.current = bucket.messages[Math.floor(Math.random() * bucket.messages.length)];
+    }
+    return motivationalMsgRef.current;
+  }, []);
 
   const getWeatherStatus = (code: number) => {
     if (code === 0) return 'Clear Skies';
@@ -414,20 +426,21 @@ export default function DashboardScreen() {
     }
     
     // Process incoming control streams from web
+    const formatTasks = (ts: any[]) => ts.filter(t => !t.archived && t.tag !== 'Shopping').map(t => ({ id: t.id, title: t.text, completed: t.completed, priority: t.priority, subtasks: t.subtasks }));
+    const formatNotes = (ns: any[]) => ns.map((n: any) => ({ id: n.id, title: n.title, content: n.content, date: n.date })).slice(0, 15);
+
     const unsub = subscribeToSync(async (type, payload) => {
       try {
-        const rawTodos = await AsyncStorage.getItem('@todos_v3');
-        let tasks = rawTodos ? JSON.parse(rawTodos) : [];
-        const formatTasks = (ts: any[]) => ts.filter(t => !t.archived && t.tag !== 'Shopping').map(t => ({ id: t.id, title: t.text, completed: t.completed, priority: t.priority, subtasks: t.subtasks }));
-
-        const rawNotes = await AsyncStorage.getItem('@daily_notes_v3');
-        let notes = rawNotes ? JSON.parse(rawNotes) : [];
-        const formatNotes = (ns: any[]) => ns.map(n => ({ id: n.id, title: n.title, content: n.content, date: n.date })).slice(0, 15);
-
-        const rawHabits = await AsyncStorage.getItem('@habits_v3');
-        let currentHabits = rawHabits ? JSON.parse(rawHabits) : [];
-
+        // Only read the storage keys actually needed for this message type
         if (type === 'REQUEST_FULL_STATE') {
+          const [rawTodos, rawNotes, rawHabits] = await Promise.all([
+            AsyncStorage.getItem('@todos_v3'),
+            AsyncStorage.getItem('@daily_notes_v3'),
+            AsyncStorage.getItem('@habits_v3'),
+          ]);
+          const tasks = rawTodos ? JSON.parse(rawTodos) : [];
+          const notes = rawNotes ? JSON.parse(rawNotes) : [];
+          const currentHabits = rawHabits ? JSON.parse(rawHabits) : [];
           broadcastSyncUpdate('FULL_STATE_SYNC', {
             greeting: 'Good Day.',
             timer: { isRunning: false, timeRemaining: 1500, mode: 'FOCUS' },
@@ -524,9 +537,16 @@ export default function DashboardScreen() {
   };
 
   useEffect(() => {
-    if (isFocused && isReady) {
+    if (!isFocused || !isReady) return;
+    // Only reset habits once per calendar day
+    const todayStr = getTodayString();
+    if (lastHabitResetDateRef.current !== todayStr) {
+      lastHabitResetDateRef.current = todayStr;
       checkAndResetHabitsDaily(habits);
-      if (!weather) updateWeatherByLocation(false);
+    }
+    // Only fetch weather if cache is older than 30 minutes
+    if (!weather || Date.now() - lastWeatherFetchRef.current > WEATHER_COOLDOWN_MS) {
+      updateWeatherByLocation(false);
     }
   }, [isFocused, isReady]);
 
@@ -543,9 +563,6 @@ export default function DashboardScreen() {
   // ── Data loading ───────────────────────────────────────────────────────────
   const loadEssentialData = async () => {
     try {
-      // Remove stale quote cache from old provider on every load
-      await AsyncStorage.removeItem('@quote_cache');
-
       const [cachedHabits, cachedWeather] = await Promise.all([
         AsyncStorage.getItem('@habits_v3'),
         AsyncStorage.getItem('@weather_cache_v2'),
@@ -558,9 +575,8 @@ export default function DashboardScreen() {
       }
       if (cachedWeather) setWeather(JSON.parse(cachedWeather));
 
-      // Fetch fresh quote immediately — no stale cache shown
+      // Fetch quote pool in background; weather fetched via isFocused effect
       backgroundQuoteUpdate();
-      setTimeout(() => updateWeatherByLocation(false), 800);
     } catch (e) {
       console.log('Error loading essential data', e);
     }
@@ -594,25 +610,37 @@ export default function DashboardScreen() {
   };
 
   // ── Quote ─────────────────────────────────────────────────────────────────
-  const backgroundQuoteUpdate = async () => {
+  // Fetches pool ONCE, caches in ref — subsequent swipes pick from memory, no re-fetch
+  const fetchAndCacheQuotePool = async () => {
     try {
-      // type.fit: free, no auth, ~1600 curated quotes, reliable static endpoint
       const response = await fetch('https://type.fit/api/quotes');
       const data: Array<{ text: string; author: string | null }> = await response.json();
       if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
-
-      // Filter out religious content and very short quotes
       const clean = data.filter(q =>
         q.text && q.text.length > 40 && q.text.length < 220 &&
         isCleanQuote(q.text, q.author || '')
       );
+      quotesPoolRef.current = (clean.length > 0 ? clean : data).map(q => ({
+        text: q.text,
+        author: (q.author || 'Unknown').replace(/, type\.fit$/, '').trim(),
+      }));
+      return quotesPoolRef.current;
+    } catch {
+      return [];
+    }
+  };
 
-      const pool = clean.length > 0 ? clean : data;
-      const picked = pool[Math.floor(Math.random() * pool.length)];
-      // type.fit appends ", type.fit" to unknown authors — strip it
-      const author = (picked.author || 'Unknown').replace(/, type\.fit$/, '').trim();
-      setQuote({ text: picked.text, author });
-    } catch (error) {
+  const pickRandomQuote = (pool: Array<{ text: string; author: string }>) => {
+    if (pool.length === 0) return FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
+    return pool[Math.floor(Math.random() * pool.length)];
+  };
+
+  const backgroundQuoteUpdate = async () => {
+    try {
+      let pool = quotesPoolRef.current;
+      if (pool.length === 0) pool = await fetchAndCacheQuotePool();
+      setQuote(pickRandomQuote(pool));
+    } catch {
       setQuote(FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)]);
     }
   };
@@ -629,23 +657,16 @@ export default function DashboardScreen() {
     })
   ).current;
 
+  // Swipe for new quote — picks from already-cached pool, no network call
   const fetchNewQuote = async (direction: 'left' | 'right' = 'right') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const exitValue = direction === 'right' ? width : -width;
     const entryValue = direction === 'right' ? -width : width;
     Animated.timing(quoteTranslateX, { toValue: exitValue, duration: 220, useNativeDriver: true }).start(async () => {
       try {
-        const res = await fetch('https://type.fit/api/quotes');
-        const data: Array<{ text: string; author: string | null }> = await res.json();
-        if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
-        const clean = data.filter(q =>
-          q.text && q.text.length > 40 && q.text.length < 220 &&
-          isCleanQuote(q.text, q.author || '')
-        );
-        const pool = clean.length > 0 ? clean : data;
-        const picked = pool[Math.floor(Math.random() * pool.length)];
-        const author = (picked.author || 'Unknown').replace(/, type\.fit$/, '').trim();
-        setQuote({ text: picked.text, author });
+        let pool = quotesPoolRef.current;
+        if (pool.length === 0) pool = await fetchAndCacheQuotePool();
+        setQuote(pickRandomQuote(pool));
       } catch {
         setQuote(FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)]);
       }
@@ -656,6 +677,9 @@ export default function DashboardScreen() {
 
   // ── Weather ───────────────────────────────────────────────────────────────
   const updateWeatherByLocation = async (manual: boolean = false) => {
+    // Skip automatic fetches within the cooldown window
+    if (!manual && Date.now() - lastWeatherFetchRef.current < WEATHER_COOLDOWN_MS) return;
+    lastWeatherFetchRef.current = Date.now();
     if (manual) setIsWeatherLoading(true);
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
