@@ -19,7 +19,7 @@ import {
 import { useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { useKeepAwake } from 'expo-keep-awake';
+import { useKeepAwake, activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
@@ -866,7 +866,15 @@ const CelebrationOverlay: React.FC<{
 export default function FocusScreen() {
   const { colors, isDark } = useTheme();
 
-  useKeepAwake();
+  // Keep screen awake ONLY while the timer is actively running
+  useEffect(() => {
+    if (isActive) {
+      activateKeepAwakeAsync();
+    } else {
+      deactivateKeepAwake();
+    }
+    return () => { deactivateKeepAwake(); };
+  }, [isActive]);
 
   // ─── State ──────────────────────────────────────────────────────────────────
   const [status, setStatus] = useState<TimerStatus>('setup');

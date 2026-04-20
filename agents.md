@@ -123,3 +123,9 @@
 - **Scalability**: All spacing and font-sizes MUST pass through `scaleSize` or `scaleFontSize` from `ResponsiveSize.ts`—never use hardcoded pixel values.
 - **Swipe containers**: Always set `overflow: 'visible'` on both `containerStyle` and `childrenContainerStyle` of `Swipeable` to prevent shadow clipping.
 - **Sync broadcasts**: After any storage write (habits/tasks/notes), call `broadcastSyncUpdate` to keep web remote in sync.
+- **Quote pool**: Fetch `type.fit` once per session into `quotesPoolRef`. Never re-fetch on each swipe.
+- **Weather cooldown**: `updateWeatherByLocation` has a 30-min guard via `lastWeatherFetchRef`. Never call unconditionally on every focus.
+- **Habit reset guard**: `checkAndResetHabitsDaily` runs at most once per calendar day via `lastHabitResetDateRef`.
+- **Screen keep-awake**: Use `activateKeepAwakeAsync` / `deactivateKeepAwake` conditionally (only when `isActive === true`). Never call `useKeepAwake()` unconditionally in FocusScreen.
+- **Splash animation cleanup**: All `Animated.loop` instances in `App.tsx` (OrbitalArc, TwinklingStar, GlowOrb, corePulse) store their loop ref and call `.stop()` in the effect cleanup.
+- **useNativeDriver**: Never use `useNativeDriver: false` on a continuous loop. Use opacity/transform only in loops.

@@ -140,9 +140,14 @@ export default function NotesScreen() {
   };
 
   // ── Boot ───────────────────────────────────────────────────────────────────
+  // PIN check only on mount — no need to re-check on every tab focus
   useEffect(() => {
     checkPinStatus();
-    loadNotes();
+  }, []);
+
+  // Notes reload on every focus (another screen may have added notes)
+  useEffect(() => {
+    if (isFocused) loadNotes();
   }, [isFocused]);
 
   const checkPinStatus = async () => {
