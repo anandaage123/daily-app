@@ -1,11 +1,11 @@
 {
-  "version": "3.7.3",
-  "build": 58,
-  "versionCode": 58,
+  "version": "3.7.4",
+  "build": 59,
+  "versionCode": 59,
   "releaseDate": "2026-04-22",
-  "releaseNotes": "\u2022 feat: add native Android homescreen widget support and implement a reports analytics view for focus tracking\n\u2022 refactor: remove Galaxy S23 device cache and update index.html structure\n\u2022 Update the README with the latest change information.",
-  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v3.7.3/Monolith.apk",
-  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v3.7.3",
+  "releaseNotes": "\u2022 chore: update device streaming configuration and project assets",
+  "downloadUrl": "https://github.com/anandaage123/daily-app/releases/download/v3.7.4/Monolith.apk",
+  "releaseUrl": "https://github.com/anandaage123/daily-app/releases/tag/v3.7.4",
   "minBuildRequired": 1,
   "forceUpdate": false
 }

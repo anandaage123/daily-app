@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.7.4 (2026-04-22)
+
+- chore: update device streaming configuration and project assets
+
 ## v3.7.3 (2026-04-22)
 
 - feat: add native Android homescreen widget support and implement a reports analytics view for focus tracking
