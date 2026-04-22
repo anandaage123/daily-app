@@ -108,6 +108,12 @@
 ### ◈ Web Companion (Monolith Remote)
 - **Files**: `index.html`, `app.css`, `app.js` — all at project root for **GitHub Pages** deployment.
 - **WebSockets Strategy**: Connects via 6-char code to PieSocket (`free.blr2.piesocket.com`). Responds to `APP_CONNECTED` event to re-issue `REQUEST_FULL_STATE`. Outgoing messages include `__monolith`, `channel`, `source: 'WEB'` wrapper.
+- **Connection Reliability** (key rules):
+    - **Heartbeat**: `_startHeartbeat(code)` sends a `PING` frame every 25s to prevent PieSocket free-tier idle drop.
+    - **Reconnect guard**: `STATE._reconnecting` flag prevents stacked reconnect timers when `onerror` + `onclose` both fire.
+    - **Stale socket cleanup**: Before creating a new WebSocket, null out all handlers on the old one and close it, so its `onclose` cannot queue another reconnect.
+    - **Always re-sync**: `REQUEST_FULL_STATE` is sent on every `onopen` (not just first connect), so reconnects always retrieve fresh state.
+    - **Visibility re-sync**: `visibilitychange` listener reconnects or re-requests state whenever the tab is brought back into focus.
 - **Frontend Design System**: Complete dark-mode glassmorphism UI. Uses `Space Grotesk` for headings, `Manrope` for body, `JetBrains Mono` for timers/code. CSS variables: `--bg #0e0e10`, `--p #c5c0ff`, `--p-hi #8b80ff`, `--green #3ecf8e`.
 - **Views**: Dashboard, Tasks, Focus (timer), **Reports** (Clockify-style analytics), Journal.
 - **Reports View**: Focus time totals, sessions count, tasks completed, tag breakdown bar chart, ritual streaks table, time entries log (populated by `logSession()` calls). Entries persist in `window._timeEntries`.

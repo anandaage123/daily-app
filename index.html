@@ -2743,6 +2743,7 @@
       selectedMood: null, editingHabitId: null, selectedRitualIcon: '🧘',
       editingTaskId: null, editPriority: 'med', taskEditSubtasks: [],
       viewingNoteId: null, wasConnected: false,
+      _reconnecting: false, _heartbeat: null,
     };
 
     const RITUAL_ICONS = ['🧘', '💧', '📖', '🏃', '🍎', '😴', '🧠', '✏️', '🎵', '📷', '❤️', '💡', '🌅', '🏋️', '🎯', '🌿', '☕', '🌙', '☀️', '📚'];
@@ -2795,29 +2796,75 @@
       connectWebSocket(code);
     }
 
+    function _startHeartbeat(code) {
+      clearInterval(STATE._heartbeat);
+      STATE._heartbeat = setInterval(() => {
+        if (STATE.ws && STATE.ws.readyState === 1) {
+          // send a lightweight ping to keep PieSocket alive
+          STATE.ws.send(JSON.stringify({ __monolith: true, channel: code, source: 'WEB', type: 'PING', payload: {} }));
+        }
+      }, 25000);
+    }
+
     function connectWebSocket(code) {
+      // guard: skip if already connecting/connected
+      if (STATE._reconnecting) return;
+      STATE._reconnecting = true;
+
+      // kill stale handlers on the old socket so its onclose can't queue another reconnect
+      if (STATE.ws) {
+        const old = STATE.ws;
+        old.onclose = null; old.onerror = null; old.onmessage = null;
+        if (old.readyState < 2) old.close();
+      }
+
       try {
         const url = `wss://free.blr2.piesocket.com/v3/${code}?api_key=6gyNU01H5lr7Q8g2ern3HwMLg3MAcysgXPxfZA7C&notify_self=0`;
         const ws = new WebSocket(url);
         STATE.ws = ws;
         ws.onopen = () => {
+          STATE._reconnecting = false;
           STATE.wasConnected = true;
-          document.getElementById('pair-status').textContent = 'Connected — waiting for app…';
+          const lbl = document.getElementById('conn-label');
+          if (lbl) lbl.textContent = 'Connected';
+          const ps = document.getElementById('pair-status');
+          if (ps) ps.textContent = 'Connected — waiting for app…';
+          _startHeartbeat(code);
+          // always request fresh state — handles both first connect and reconnects
           setTimeout(() => send('REQUEST_FULL_STATE', {}), 500);
         };
         ws.onmessage = e => { try { handleMessage(JSON.parse(e.data)); } catch (_) { } };
         ws.onclose = () => {
+          STATE._reconnecting = false;
+          clearInterval(STATE._heartbeat);
           const lbl = document.getElementById('conn-label');
           if (lbl) lbl.textContent = 'Reconnecting…';
           setTimeout(() => connectWebSocket(code), 3000);
         };
         ws.onerror = () => {
-          document.getElementById('pair-status').textContent = 'Connection error. Check network.';
+          // onerror is always followed by onclose, so just log; reconnect fires from onclose
+          STATE._reconnecting = false;
+          const ps = document.getElementById('pair-status');
+          if (ps) ps.textContent = 'Connection error — retrying…';
         };
       } catch (e) {
-        document.getElementById('pair-status').textContent = 'Connection error.';
+        STATE._reconnecting = false;
+        const ps = document.getElementById('pair-status');
+        if (ps) ps.textContent = 'Connection error.';
+        setTimeout(() => connectWebSocket(code), 4000);
       }
     }
+
+    // Re-sync when the user returns to the tab
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && STATE.syncCode) {
+        if (!STATE.ws || STATE.ws.readyState > 1) {
+          connectWebSocket(STATE.syncCode);
+        } else if (STATE.ws.readyState === 1) {
+          send('REQUEST_FULL_STATE', {});
+        }
+      }
+    });
 
     function send(type, payload) {
       if (STATE.ws && STATE.ws.readyState === 1) {
